@@ -143,10 +143,17 @@ def inverse_Hessian_approx(positions, gradients, H=None): # needs to be cleaned 
 
 
 
-def Hessian_approx(positions, gradients, H=None):
-    '''
-    Hessian approximation with BFGS Quasi-Newton Method (B matrix)
-    '''
+def Hessian_approx(positions, gradients, H=None, approx_type='bfgs'):
+    if approx_type == 'bfgs':
+        return BFGS_hessian_approx(positions, gradients, H)
+    elif approx_type == 'fisher':
+        raise NotImplementedError
+    elif approx_type == 'gsm':
+        raise NotImplementedError
+
+
+def BFGS_hessian_approx(positions, gradients, H=None):
+    '''Hessian approximation with BFGS Quasi-Newton Method (B matrix)'''
     d = positions.shape[1]
     npos = positions.shape[0]
     #if H is None: 
@@ -177,7 +184,7 @@ def Hessian_approx(positions, gradients, H=None):
         H += update
         nabla = nabla_new[:].flatten()
         x = x_new[:].flatten()
-    return H, point_used #not_pos
+    return H, point_used 
 
     
 def power_iteration(A, num_iters=100):
@@ -236,14 +243,17 @@ def cmdstanpy_wrapper(draws_pd, savepath=None):
     return samples, n_leapfrog
 
 
+def stepsize_distribution(epsmean, epsmax, epsmin, distribution='beta'):
+    if distribution == 'beta':
+        return beta_dist(epsmean, epsmax, epsmin)
+    else:
+        raise NotImplementedError
 
-def get_beta_dist(eps, epsmax, min_fac=500):
-    """return a beta distribution given the mean step-size, max step-size and min step size(factor).
-    Mean of the distribution=eps. Mode of the distribution=eps/2
-    """
-    epsmin = min(epsmax/min_fac, eps/10)
+def beta_dist(epsmean, epsmax, epsmin):
+    """Return a beta distribution with mode=eps_mean/2."""
+    #epsmin = min(epsmin, eps/10)
     scale = epsmax-epsmin
-    eps_scaled = eps/epsmax
+    eps_scaled = epsmean/epsmax
     b = 2 * (1-eps_scaled)**2/eps_scaled
     a = 2 * (1-eps_scaled)
     dist = beta(a=a, b=b, loc=epsmin, scale=scale)

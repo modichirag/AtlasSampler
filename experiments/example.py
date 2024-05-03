@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 sys.path.append('../adsampler/')
 from hmc import HMC
 from uturn_samplers import HMC_Uturn_Sampler, HMC_Uturn_Jitter_Sampler 
+from stepadapt_samplers import DRHMC_AdaptiveStepsize
 import util
 
 import logging
@@ -33,9 +34,11 @@ parser.add_argument('--n_leapfrog', type=int, default=40, help='number of leapfr
 parser.add_argument('--n_samples', type=int, default=1001, help='number of samples')
 parser.add_argument('--n_burnin', type=int, default=0, help='number of iterations for burn-in')
 parser.add_argument('--n_stepsize_adapt', type=int, default=0, help='step size adaptation')
+parser.add_argument('--n_leapfrog_adapt', type=int, default=0, help='step size adaptation')
 parser.add_argument('--target_accept', type=float, default=0.80, help='target acceptance')
 parser.add_argument('--step_size', type=float, default=0.1, help='initial step size')
 parser.add_argument('--offset', type=float, default=0.5, help='offset for uturn sampler')
+parser.add_argument('--constant_trajectory', type=int, default=0, help='run hmc')
 parser.add_argument('--hmc', type=int, default=0, help='run hmc')
 parser.add_argument('--nuts', type=int, default=0, help='run nuts')
 #arguments for path name
@@ -66,7 +69,7 @@ print(f"Saving runs in parent folder : {savepath}")
 
 ###################################
 # NUTS
-np.random.seed(999)
+np.random.seed(args.seed)
 idx = np.random.randint(0, ref_samples[..., 0].size, wsize)
 inits = ref_samples.reshape(-1, D)[idx]
 if wrank == 0:
@@ -139,10 +142,14 @@ np.random.seed(0)
 #                            min_nleapfrog=1, max_nleapfrog=128, offset=None)
 # kernel = HMC_Uturn_Sampler(D, lp, lp_g, mass_matrix=np.eye(D), 
 #                            min_nleapfrog=1, max_nleapfrog=128, offset=None)
-kernel = HMC_Uturn_Jitter_Sampler(D, lp, lp_g, mass_matrix=np.eye(D), 
+# kernel = HMC_Uturn_Jitter_Sampler(D, lp, lp_g, mass_matrix=np.eye(D), 
+#                            min_nleapfrog=1, max_nleapfrog=128, offset=None)
+kernel = DRHMC_AdaptiveStepsize(D, lp, lp_g, mass_matrix=np.eye(D), 
                            min_nleapfrog=1, max_nleapfrog=128, offset=None)
 sampler = kernel.sample(q0, n_leapfrog=args.n_leapfrog, step_size=step_size, n_samples=n_samples, n_burnin=n_burnin,
-                        n_stepsize_adapt=n_stepsize_adapt,
+                        n_stepsize_adapt=args.n_stepsize_adapt,
+                        n_leapfrog_adapt=args.n_leapfrog_adapt,
+                        constant_trajectory=args.constant_trajectory,
                         target_accept=target_accept)
 
 print(f"Acceptance for Uturn HMC in chain {wrank} : ", np.unique(sampler.accepts, return_counts=True))

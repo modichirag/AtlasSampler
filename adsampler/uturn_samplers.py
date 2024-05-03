@@ -109,11 +109,11 @@ class HMC_Uturn_Sampler(HMC):
             stepcount = [Nuturn, Nuturn_rev, nleapfrog]
 
             # evaluate accept/reject probability
-            log_prob, H0, H1 = self.accept_log_prob([q, p], [q1, p1], return_H=True)
+            log_prob_H, H0, H1 = self.accept_log_prob([q, p], [q1, p1], return_H=True)
             log_prob_N = lp2 - lp1
             mh_factor = np.exp(log_prob_N)
             Hs = [H0, H1]
-            log_prob_total = log_prob + log_prob_N 
+            log_prob_total = log_prob_H + log_prob_N 
 
             # accept/reject sample and return
             u =  np.random.uniform(0., 1., size=1)
@@ -240,6 +240,16 @@ class HMC_Uturn_Jitter_Sampler(HMC_Uturn_Sampler):
             lambda step_size : min(max(int(np.random.choice(self.trajectories, 1) / step_size), self.min_nleapfrog), self.max_nleapfrog)
 
 
+    def combine_trajectories_from_chains(self):
+        all_traj_array = np.zeros(len(self.traj_array) * wsize)
+        all_traj_array_tmp = comm.gather(self.traj_array, root=0)
+        if wrank == 0 :
+            all_traj_array = np.concatenate(all_traj_array_tmp)
+        comm.Bcast(all_traj_array, root=0)
+        self.traj_array = all_traj_array*1.
+        self.traj_array = self.traj_array[ self.traj_array!=0]
+
+
     def sample(self, q, p=None,
             n_samples=100, n_burnin=0, step_size=0.1, n_leapfrog=10,
             n_stepsize_adapt=0, n_leapfrog_adapt=100,
@@ -263,15 +273,8 @@ class HMC_Uturn_Jitter_Sampler(HMC_Uturn_Sampler):
 
         if n_leapfrog_adapt:  # Construct a distribution of trajectory lengths
             q = self.adapt_trajectory_length(q, n_leapfrog_adapt)
-            # Combine trajectories from all chains for better(robust) distribution
             comm.Barrier()
-            all_traj_array = np.zeros(len(self.traj_array) * wsize)
-            all_traj_array_tmp = comm.gather(self.traj_array, root=0)
-            if wrank == 0 :
-                all_traj_array = np.concatenate(all_traj_array_tmp)
-            comm.Bcast(all_traj_array, root=0)
-            self.traj_array = all_traj_array*1.
-            self.traj_array = self.traj_array[ self.traj_array!=0]
+            self.combine_trajectories_from_chains()
             state.trajectories = self.traj_array
             comm.Barrier()
             print(f"Shape of trajectories after bcast  in rank {wrank} : ", self.traj_array.shape)
