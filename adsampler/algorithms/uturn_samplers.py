@@ -1,9 +1,9 @@
 import sys
 import numpy as np
-from scipy.stats import multivariate_normal, uniform, binom
+from scipy.stats import multivariate_normal, uniform
 
-from util import Sampler, DualAveragingStepSize, PrintException
-from hmc import HMC
+from .hmc import HMC
+from ..util import Sampler, DualAveragingStepSize, PrintException
 
 # Setup MPI environment
 from mpi4py import MPI
@@ -12,7 +12,10 @@ wrank = comm.Get_rank()
 wsize = comm.Get_size()
 
 
-class HMC_Uturn_Sampler(HMC):
+__all__ = ["HMC_Uturn", "HMC_Uturn_Jitter"]
+
+
+class HMC_Uturn(HMC):
     """
     U-turn sampler adaptively estimates the trajectory length for each iteration.
     Each iteration has 4 steps-
@@ -24,7 +27,7 @@ class HMC_Uturn_Sampler(HMC):
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
                 offset=None, min_offset=0.33, max_offset=0.66,
                 min_nleapfrog=3, max_nleapfrog=1024, **kwargs):
-        super(HMC_Uturn_Sampler, self).__init__(D=D, 
+        super(HMC_Uturn, self).__init__(D=D, 
                                                 log_prob=log_prob, 
                                                 grad_log_prob=grad_log_prob, 
                                                 mass_matrix=mass_matrix)        
@@ -183,7 +186,7 @@ class HMC_Uturn_Sampler(HMC):
 
 
 ###################################################
-class HMC_Uturn_Jitter_Sampler(HMC_Uturn_Sampler):
+class HMC_Uturn_Jitter(HMC_Uturn):
     """
     U-turn Jitter sampler constructs an empirical distribution of trajectory lengths
     in the warmup stage by evaluating U-turn lengths for a few iterations. 
@@ -194,7 +197,7 @@ class HMC_Uturn_Jitter_Sampler(HMC_Uturn_Sampler):
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, offset=0.5, 
                  low_nleap_percentile=10, high_nleap_percentile=90, nleap_factor=1.,
                  **kwargs):
-        super(HMC_Uturn_Jitter_Sampler, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
+        super(HMC_Uturn_Jitter, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                             mass_matrix=mass_matrix, offset=offset,
                                             **kwargs)
         self.low_nleap_percentile = low_nleap_percentile

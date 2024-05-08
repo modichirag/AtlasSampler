@@ -2,14 +2,14 @@ import numpy as np
 import os, sys, time
 import matplotlib.pyplot as plt
 
-sys.path.append('../adsampler/')
-sys.path.append('../adsampler/algorithms/')
-from hmc import HMC
-from uturn_samplers import HMC_Uturn_Sampler, HMC_Uturn_Jitter_Sampler 
-from stepadapt_samplers import DRHMC_AdaptiveStepsize
-from adsampler import ADSampler
-import util
-from cmdstanpy_wrapper import cmdstanpy_wrapper
+#sys.path.append('../adsampler/')
+#sys.path.append('../adsampler/algorithms/')
+from adsampler import HMC, Adapt_and_Delay
+# from hmc import HMC
+# from uturn_samplers import HMC_Uturn_Sampler, HMC_Uturn_Jitter_Sampler 
+# from stepadapt_samplers import DRHMC_AdaptiveStepsize
+# from adsampler import ADSampler
+from adsampler.wrappers import cmdstanpy_wrapper
 import logging
 import cmdstanpy as csp
 csp.utils.get_logger().setLevel(logging.ERROR)
@@ -137,15 +137,15 @@ print(f"Saving runs in folder : {savefolder}")
 # Start run
 np.random.seed(0)
 #kernel = HMC(D, lp, lp_g, mass_matrix=np.eye(D))
-#kernel = HMC_Uturn_Sampler(D, lp, lp_g, mass_matrix=np.eye(D), 
+#kernel = HMC_Uturn(D, lp, lp_g, mass_matrix=np.eye(D), 
 #                           min_nleapfrog=1, max_nleapfrog=128, offset=args.offset)
-# kernel = HMC_Uturn_Jitter_Sampler(D, lp, lp_g, mass_matrix=np.eye(D), 
+# kernel = HMC_Uturn_Jitter(D, lp, lp_g, mass_matrix=np.eye(D), 
 #                                   min_nleapfrog=1, max_nleapfrog=128, offset=args.offset)
 # kernel = DRHMC_AdaptiveStepsize(D, lp, lp_g, mass_matrix=np.eye(D),
 #                                 constant_trajectory=args.constant_trajectory,
 #                                 high_nleap_percentile=50,
 #                                 min_nleapfrog=1, max_nleapfrog=128, offset=args.offset)
-kernel = ADSampler(D, lp, lp_g, mass_matrix=np.eye(D), 
+kernel = Adapt_and_Delay(D, lp, lp_g, mass_matrix=np.eye(D), 
                    constant_trajectory=args.constant_trajectory,
                    probabilistic=args.probabilistic,
                    min_nleapfrog=3, max_nleapfrog=128, offset=args.offset)

@@ -2,8 +2,8 @@ import sys
 import numpy as np
 from scipy.stats import multivariate_normal
 
-from util import Sampler, Hessian_approx, PrintException, power_iteration, stepsize_distribution
-from stepadapt_samplers import DRHMC_AdaptiveStepsize
+from ..util import Sampler, PrintException
+from .stepadapt_samplers import DRHMC_AdaptiveStepsize
 
 # Setup MPI environment
 from mpi4py import MPI
@@ -11,8 +11,9 @@ comm = MPI.COMM_WORLD
 wrank = comm.Get_rank()
 wsize = comm.Get_size()
 
+__all__ = ["Adapt_and_Delay"]
 
-class ADSampler(DRHMC_AdaptiveStepsize):
+class Adapt_and_Delay(DRHMC_AdaptiveStepsize):
     """
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
@@ -53,7 +54,7 @@ class ADSampler(DRHMC_AdaptiveStepsize):
                 baseline stepsize/max_stepsize_reduction
         """
 
-        super(ADSampler, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
+        super(Adapt_and_Delay, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                         mass_matrix=mass_matrix, offset=offset,
                                         **kwargs)
         if self.min_nleapfrog <= 2:

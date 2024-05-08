@@ -2,8 +2,10 @@ import sys
 import numpy as np
 from scipy.stats import multivariate_normal
 
-from uturn_samplers import HMC_Uturn_Jitter_Sampler
-from util import Sampler, Hessian_approx, PrintException, power_iteration, stepsize_distribution
+from .uturn_samplers import HMC_Uturn_Jitter
+from ..util import Sampler, PrintException, power_iteration
+from ..hessians import Hessian_approx
+from ..distributions import stepsize_distribution
 
 # Setup MPI environment
 from mpi4py import MPI
@@ -12,7 +14,7 @@ wrank = comm.Get_rank()
 wsize = comm.Get_size()
 
 
-class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter_Sampler):
+class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
     """
     2-step Delayed rejection HMC sampler where upon rejection,
     the step-size for the second proposal is adapted automatically by estimating the local Hessian

@@ -1,24 +1,13 @@
 import numpy as np
 import scipy as sp
-import pandas as pd
 import sys
 import os
 import linecache
 from scipy.stats import beta
 
-def mean_sq_jump_distance(sample):
-    sq_jump = []
-    M = np.shape(sample)[0]
-    for m in range(M - 1):
-        jump = sample[m + 1, :] - sample[m, :]
-        sq_jump.append(jump.dot(jump))
-    return np.mean(sq_jump)
-
 
 class Sampler():
-    '''A simple sampler class to store samples and other use quantities
-    over iterations in MCMC chain
-    '''
+    '''A simple class to store samples and other quantities over iterations in MCMC chain'''
     def __init__(self):
         self.samples = []
         self.accepts = []
@@ -103,6 +92,88 @@ class DualAveragingStepSize():
 
 
 
+# def Hessian_approx(positions, gradients, H=None, approx_type='bfgs'):
+#     if approx_type == 'bfgs':
+#         return BFGS_hessian_approx(positions, gradients, H)
+#     elif approx_type == 'fisher':
+#         raise NotImplementedError
+#     elif approx_type == 'gsm':
+#         raise NotImplementedError
+
+
+# def BFGS_hessian_approx(positions, gradients, H=None):
+#     '''Hessian approximation with BFGS Quasi-Newton Method (B matrix)'''
+#     d = positions.shape[1]
+#     npos = positions.shape[0]
+#     #if H is None: 
+#     #    H = np.eye(d) # initial hessian. Moved to initilization below which is better
+   
+#     nabla = gradients[0]
+#     x = positions[0]
+    
+#     it = 0 
+#     not_pos = 0
+#     point_used = 0 
+#     for i in range(npos-1):
+#         it += 1
+#         x_new = positions[i+1]
+#         nabla_new = gradients[i+1]
+#         s = x_new - x
+#         y = nabla_new - nabla
+#         r = 1/(np.dot(y,s))
+#         if r < 0:               #Curvature condition to ensure positive definite
+#             not_pos +=1 
+#             continue
+#         if (H is None) : #initialize based on, but before first update. Taken from Nocedal
+#             #H = np.eye(x.size) * np.dot(y,s)/np.dot(y, y) #gets confusing if we multiply or divide
+#             H = np.eye(x.size) / np.dot(y,s) *np.dot(y, y) 
+#         point_used +=1
+#         z = np.dot(H, s)
+#         update = np.outer(y, y) / np.dot(s, y) - np.outer(z, z) / np.dot(s, z)
+#         H += update
+#         nabla = nabla_new[:].flatten()
+#         x = x_new[:].flatten()
+#     return H, point_used 
+
+    
+def power_iteration(A, num_iters=100):
+
+    # Starting vector
+    b = np.random.rand(A.shape[0])
+    # Power iteration
+    for ii in range(num_iters):
+        # Project
+        bnew = A @ b
+        # Normalize
+        b = bnew / np.linalg.norm(bnew, ord=2)
+        
+    eigval = (A @ b)@b/(b@b)
+    return eigval, b
+
+
+def PrintException():
+    '''
+    Useful piece of code for debugging with try-except clause.
+    Gives the line where exception occured and other details.
+    '''
+    exc_type, exc_obj, tb = sys.exc_info()
+    f = tb.tb_frame
+    lineno = tb.tb_lineno
+    filename = f.f_code.co_filename
+    linecache.checkcache(filename)
+    line = linecache.getline(filename, lineno, f.f_globals)
+    print ('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
+
+
+def mean_sq_jump_distance(sample):
+    sq_jump = []
+    M = np.shape(sample)[0]
+    for m in range(M - 1):
+        jump = sample[m + 1, :] - sample[m, :]
+        sq_jump.append(jump.dot(jump))
+    return np.mean(sq_jump)
+
+
 def inverse_Hessian_approx(positions, gradients, H=None): # needs to be cleaned based on Hessian_approx code
     '''
     Inverse Hessian approximation with BFGS Quasi-Newton Method
@@ -143,95 +214,20 @@ def inverse_Hessian_approx(positions, gradients, H=None): # needs to be cleaned 
     return H, not_pos
 
 
-
-def Hessian_approx(positions, gradients, H=None, approx_type='bfgs'):
-    if approx_type == 'bfgs':
-        return BFGS_hessian_approx(positions, gradients, H)
-    elif approx_type == 'fisher':
-        raise NotImplementedError
-    elif approx_type == 'gsm':
-        raise NotImplementedError
-
-
-def BFGS_hessian_approx(positions, gradients, H=None):
-    '''Hessian approximation with BFGS Quasi-Newton Method (B matrix)'''
-    d = positions.shape[1]
-    npos = positions.shape[0]
-    #if H is None: 
-    #    H = np.eye(d) # initial hessian. Moved to initilization below which is better
-   
-    nabla = gradients[0]
-    x = positions[0]
-    
-    it = 0 
-    not_pos = 0
-    point_used = 0 
-    for i in range(npos-1):
-        it += 1
-        x_new = positions[i+1]
-        nabla_new = gradients[i+1]
-        s = x_new - x
-        y = nabla_new - nabla
-        r = 1/(np.dot(y,s))
-        if r < 0:               #Curvature condition to ensure positive definite
-            not_pos +=1 
-            continue
-        if (H is None) : #initialize based on, but before first update. Taken from Nocedal
-            #H = np.eye(x.size) * np.dot(y,s)/np.dot(y, y) #gets confusing if we multiply or divide
-            H = np.eye(x.size) / np.dot(y,s) *np.dot(y, y) 
-        point_used +=1
-        z = np.dot(H, s)
-        update = np.outer(y, y) / np.dot(s, y) - np.outer(z, z) / np.dot(s, z)
-        H += update
-        nabla = nabla_new[:].flatten()
-        x = x_new[:].flatten()
-    return H, point_used 
+# def stepsize_distribution(epsmean, epsmax, epsmin, distribution='beta'):
+#     if distribution == 'beta':
+#         return beta_dist(epsmean, epsmax, epsmin)
+#     else:
+#         raise NotImplementedError
 
     
-def power_iteration(A, num_iters=100):
-
-    # Starting vector
-    b = np.random.rand(A.shape[0])
-    # Power iteration
-    for ii in range(num_iters):
-        # Project
-        bnew = A @ b
-        # Normalize
-        b = bnew / np.linalg.norm(bnew, ord=2)
-        
-    eigval = (A @ b)@b/(b@b)
-    return eigval, b
-
-
-def PrintException():
-    '''
-    Useful piece of code for debugging with try-except clause.
-    Gives the line where exception occured and other details.
-    '''
-    exc_type, exc_obj, tb = sys.exc_info()
-    f = tb.tb_frame
-    lineno = tb.tb_lineno
-    filename = f.f_code.co_filename
-    linecache.checkcache(filename)
-    line = linecache.getline(filename, lineno, f.f_globals)
-    print ('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
-
-
-
-def stepsize_distribution(epsmean, epsmax, epsmin, distribution='beta'):
-    if distribution == 'beta':
-        return beta_dist(epsmean, epsmax, epsmin)
-    else:
-        raise NotImplementedError
-
-    
-def beta_dist(epsmean, epsmax, epsmin):
-    """Return a beta distribution with mode=eps_mean/2."""
-    #epsmin = min(epsmin, eps/10)
-    scale = epsmax-epsmin
-    eps_scaled = epsmean/epsmax
-    b = 2 * (1-eps_scaled)**2/eps_scaled
-    a = 2 * (1-eps_scaled)
-    dist = beta(a=a, b=b, loc=epsmin, scale=scale)
-    return dist
+# def beta_dist(epsmean, epsmax, epsmin):
+#     """Return a beta distribution with mode=eps_mean/2."""
+#     #epsmin = min(epsmin, eps/10)
+#     scale = epsmax-epsmin
+#     eps_scaled = epsmean/epsmax
+#     b = 2 * (1-eps_scaled)**2/eps_scaled
+#     a = 2 * (1-eps_scaled)
+#     dist = beta(a=a, b=b, loc=epsmin, scale=scale)
+#     return dist
 
