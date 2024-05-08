@@ -36,9 +36,9 @@ class HMC_Uturn_Sampler(HMC):
             offset = None
         else:
             self.offset_function = lambda : offset
-        # parse remaining kwargs
-        for key, val in kwargs.items():
-            setattr(self, key, val)
+        # # parse remaining kwargs
+        # for key, val in kwargs.items():
+        #     setattr(self, key, val)
 
 
     def nuts_criterion(self, q, p, step_size):
@@ -191,14 +191,11 @@ class HMC_Uturn_Jitter_Sampler(HMC_Uturn_Sampler):
     During sampling, it randomly samples a trajectory length from this distribution. 
     """
     
-    def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None,
-                 offset=0.5, min_nleapfrog=5, max_nleapfrog=1024,
+    def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, offset=0.5, 
                  low_nleap_percentile=10, high_nleap_percentile=90, nleap_factor=1.,
                  **kwargs):
-        super(HMC_Uturn_Jitter_Sampler, self).__init__(D=D, 
-                                            log_prob=log_prob, grad_log_prob=grad_log_prob, 
+        super(HMC_Uturn_Jitter_Sampler, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                             mass_matrix=mass_matrix, offset=offset,
-                                            min_nleapfrog=min_nleapfrog, max_nleapfrog=max_nleapfrog,
                                             **kwargs)
         self.low_nleap_percentile = low_nleap_percentile
         self.high_nleap_percentile = high_nleap_percentile

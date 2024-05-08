@@ -16,31 +16,54 @@ class ADSampler(DRHMC_AdaptiveStepsize):
     """
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
-                 offset=None, min_nleapfrog=3, max_nleapfrog=1024,
-                 n_hessian_samples=10, n_hessian_attempts=10, 
-                 low_nleap_percentile=10, high_nleap_percentile=90, nleap_factor=1.,
-                 constant_trajectory=False,
+                 offset=None, 
+                 constant_trajectory=0,
                  probabilistic=0,
-                 max_stepsize_reduction=500,
                  **kwargs):
+        """Initialize an instance of ADSampler.
+        
+        Args:
+            D (int): dimensionality of the parameter space
+            log_prob (function): function that takes in parameter value and returns log_probability
+            grad_log_prob (function):  function that takes in parameter value 
+                and returns the gradient of the log_probability
+            offset (float in range 0-1, default=None): sample the proposal from [offset, 1) fraction
+                of the no-U turn trajectory. If None, offset is shuffled and randomly picked
+                between [0.33, 0.66] for every iteration.      
+            constant_trajectory (0, 1, or 2, default=1): determine if number of leapfrog steps for
+                delayed proposals are scaled by stepsize ratio. 0: no scaling for any delayed proposal. 
+                1: only delayed proposal on failure are scaled. 2: both delayed proposals are sacled 
+            probabilistic (0 or 1, default=0): wether to make delayed proposal without failure
+                0: always make second delayed proposal. 1: make delayed proposal only the first proposal
+                is rejected not due to a sub u-turn  
+        
+        Keyword args:
+            min_nleapfrog (int, default=3): minimum number of leapfrog steps.
+                use delayed_rejection_with_failure if number of steps in first proposal is less that it.
+            max_nleapfrog (int, default=1024): maximum number of leapfrog steps in any iteration.
+            n_hessian_samples (int, default=10): minimum number of points needed to evaluate Hessian
+            n_hessian_attempts (int, default=10): maximum number of attempts to evaluate Hessian
+                by reducing step-size with a factor of 2 on each attempt. 
+            low_nleap_percentile (int, default=10): percentile below which u-turn trajectories
+                in the empirical trajectory length distribution of warmup are discarded.
+            high_nleap_percentile (int, default=90): percentile above which u-turn trajectories
+                in the empirical trajectory length distribution of warmup are discarded.
+            nleap_factor (float, default=1.): scale the empirical distribution of trajectory lengths.
+            max_stepsize_reduction (float, default=500): minimum possible step-size is set to be the
+                baseline stepsize/max_stepsize_reduction
+        """
+
         super(ADSampler, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                         mass_matrix=mass_matrix, offset=offset,
-                                        min_nleapfrog=min_nleapfrog, max_nleapfrog=max_nleapfrog,
-                                        n_hessian_samples=n_hessian_samples,
-                                        n_hessian_attempts=n_hessian_attempts, 
-                                        low_nleap_percentile=low_nleap_percentile,
-                                        high_nleap_percentile=high_nleap_percentile,
-                                        nleap_factor=nleap_factor,
-                                        constant_trajectory=constant_trajectory,
-                                        max_stepsize_reduction=max_stepsize_reduction,
                                         **kwargs)
-        if self.min_nleapfrog < 2:
+        if self.min_nleapfrog <= 2:
             print("min nleapfrog should at least be 2 for delayed proposals")
             raise
         self.probabilistic = probabilistic
+        self.constant_trajectory=constant_trajectory
 
         
-    def first_step(self, q, p, step_size, offset, n_leapfrog=None):
+    def preliminary_step(self, q, p, step_size, offset, n_leapfrog=None):
         """
         First step is making a no-uturn proposal.
         """
@@ -101,7 +124,7 @@ class ADSampler(DRHMC_AdaptiveStepsize):
             
             # Ghost trajectory for the second proposal
             qp_ghost, qpg_ghost_list, log_prob_ghost_list, Hs_ghost, n_leapfrog_ghost = \
-                                        self.first_step(q1, -p1, step_size, offset=offset, n_leapfrog=n_leapfrog)
+                                        self.preliminary_step(q1, -p1, step_size, offset=offset, n_leapfrog=n_leapfrog)
 
             if n_leapfrog_ghost == 0: #in this case, ghost stage cannot lead to the current delayed propsal
                 qf, pf, accepted = q0, p0, -14
@@ -144,13 +167,13 @@ class ADSampler(DRHMC_AdaptiveStepsize):
         """Delayed step upon failure is executed when Nuturn of first step < min_nleapfrog.
         """
         try:
-            # Estimate the Hessian given the rejected trajectory, use it to estimate step-size
+            # Estimate the Hessian and the stepsize given the rejected trajectory
             eps1, epsf1 = self.get_stepsize_dist(q0, p0, qlist, glist, step_size)
             step_size_new = epsf1.rvs(size=1)[0]
             
             # Make the second proposal
             n_leapfrog_new =  self.nleapfrog_jitter_dist(step_size)
-            if self.constant_trajectory > 0:
+            if self.constant_trajectory != 0:
                 n_leapfrog_new = n_leapfrog_new*step_size / step_size_new
             n_leapfrog_new = int(min(self.max_nleapfrog, max(self.min_nleapfrog, n_leapfrog_new)))
                     
@@ -159,7 +182,7 @@ class ADSampler(DRHMC_AdaptiveStepsize):
             
             # Ghost trajectory for the second proposal
             qp_ghost, qpg_list_ghost, log_prob_ghost_list, Hs_ghost, n_leapfrog_ghost = \
-                                            self.first_step(q1, -p1, step_size, offset=offset, n_leapfrog=n_leapfrog)
+                                            self.preliminary_step(q1, -p1, step_size, offset=offset, n_leapfrog=n_leapfrog)
             
             if n_leapfrog_ghost != 0: #in this case, ghost stage cannot lead to the current delayed propsal
                 qf, pf, accepted = q0, p0, -24
@@ -203,8 +226,7 @@ class ADSampler(DRHMC_AdaptiveStepsize):
         
         p =  multivariate_normal.rvs(mean=np.zeros(self.D), cov=self.inv_mass_matrix, size=1)
         offset = self.offset_function()
-        print(offset)
-        qp, qpg_list, log_prob_list, Hs, n_leapfrog = self.first_step(q, p, step_size, offset=offset)
+        qp, qpg_list, log_prob_list, Hs, n_leapfrog = self.preliminary_step(q, p, step_size, offset=offset)
         log_prob_accept, log_prob_H, log_prob_N = log_prob_list
         q1, p1 = qp
         qlist, plist, glist = qpg_list
@@ -257,7 +279,7 @@ class ADSampler(DRHMC_AdaptiveStepsize):
             self.combine_trajectories_from_chains()
             state.trajectories = self.traj_array
             comm.Barrier()
-            print(f"Shape of trajectories after bcast  in rank {wrank} : ", self.traj_array.shape)
+            print(f"Shape of trajectories after bcast in rank {wrank} : ", self.traj_array.shape)
             self.nleapfrog_jitter()
         else:
             self.nleapfrog_jitter_dist = lambda x:  self.n_leapfrog

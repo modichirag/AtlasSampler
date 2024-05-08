@@ -23,14 +23,9 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter_Sampler):
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
                  n_hessian_samples=10, n_hessian_attempts=10, 
                  max_stepsize_reduction=500,
-                 low_nleap_percentile=10, high_nleap_percentile=90, nleap_factor=1.,
                  constant_trajectory=False,
                  **kwargs):
-        super(DRHMC_AdaptiveStepsize, self).__init__(D=D, 
-                                                     log_prob=log_prob, grad_log_prob=grad_log_prob,
-                                                     low_nleap_percentile=low_nleap_percentile,
-                                                     high_nleap_percentile=high_nleap_percentile,
-                                                     nleap_factor=nleap_factor,
+        super(DRHMC_AdaptiveStepsize, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob,
                                                      mass_matrix=mass_matrix, **kwargs)        
         self.n_hessian_samples=n_hessian_samples
         self.n_hessian_attempts = n_hessian_attempts

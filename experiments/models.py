@@ -4,7 +4,8 @@ import json
 import bridgestan as bs
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 bs.set_bridgestan_path(BRIDGESTAN)
-CURR_DIR = "/mnt/home/cmodi/Research/Projects/adaptive-hmc/" #os.getcwd()
+CURR_DIR = "/mnt/home/cmodi/Research/Projects/ADSampler/" #os.getcwd()
+
 
 def write_tmpdata(D, datapath):
     # Data to be written
@@ -19,25 +20,6 @@ def write_tmpdata(D, datapath):
         outfile.write(json_object)
 
     return f"{datapath}"
-
-
-##### Setup the models
-def setup_pdb(model_n):
-    sys.path.append('/mnt/home/cmodi/Research/Projects/posterior_database/')
-    from posteriordb import BSDB
-
-    model = BSDB(model_n)
-    D = model.dims
-    lp = model.lp
-    lp_g = lambda x: model.lp_g(x)[1]
-    try:
-        ref_samples = model.samples_unc.copy()
-    except Exception as e:
-        print(e)
-        ref_samples = None
-
-    return model, D, lp, lp_g, ref_samples, None
-
 
 
 ##### Setup the models

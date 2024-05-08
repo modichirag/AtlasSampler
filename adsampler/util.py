@@ -1,7 +1,5 @@
-import cmdstanpy as csp
 import numpy as np
 import scipy as sp
-import plotnine as pn
 import pandas as pd
 import sys
 import os
@@ -32,8 +30,11 @@ class Sampler():
     def to_array(self):
         for key in self.__dict__:
             if type(self.__dict__[key]) == list:
-                self.__dict__[key] = np.array(self.__dict__[key])            
-
+                try:
+                    self.__dict__[key] = np.array(self.__dict__[key])            
+                except Exception as e:
+                    PrintException()
+                
     def to_list(self):
         for key in self.__dict__:
             if type(self.__dict__[key]) == np.ndarray:
@@ -217,38 +218,13 @@ def PrintException():
 
 
 
-
-def cmdstanpy_wrapper(draws_pd, savepath=None):
-
-    cols = draws_pd.columns
-    assert cols[9] == 'energy__'
-
-    chain_id = draws_pd['chain__'].values.astype(int)
-    tmp = draws_pd['chain__'].values
-    nchains = np.unique(chain_id).size
-    print(f'Number of chains in cmdstanpy data : {nchains}')
-
-    chain_id = chain_id.reshape(nchains, -1)
-    n_leapfrog = draws_pd['n_leapfrog__'].values.astype(int)
-    n_leapfrog = n_leapfrog.reshape(nchains, -1)
-    
-    
-    samples = draws_pd[cols[10:]].values
-    samples = samples.reshape(nchains, -1, samples.shape[1])
-    if savepath is not None:
-        os.makedirs(savepath, exist_ok=True)
-        np.save(f'{savepath}/samples', samples)
-        np.save(f'{savepath}/leapfrogs', n_leapfrog)
-
-    return samples, n_leapfrog
-
-
 def stepsize_distribution(epsmean, epsmax, epsmin, distribution='beta'):
     if distribution == 'beta':
         return beta_dist(epsmean, epsmax, epsmin)
     else:
         raise NotImplementedError
 
+    
 def beta_dist(epsmean, epsmax, epsmin):
     """Return a beta distribution with mode=eps_mean/2."""
     #epsmin = min(epsmin, eps/10)

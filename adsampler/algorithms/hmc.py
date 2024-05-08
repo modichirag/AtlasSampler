@@ -1,23 +1,26 @@
+import os
 import sys
 import numpy as np
 from scipy.stats import multivariate_normal
 
+parent_dir_name = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(parent_dir_name)
 from util import Sampler, DualAveragingStepSize, PrintException
 
 
 class HMC():
 
-    def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None):
+    def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, dtype=np.float64):
 
         self.D = D
         self.log_prob, self.grad_log_prob = log_prob, grad_log_prob
         self.V = lambda x : self.log_prob(x)*-1.
 
-        if mass_matrix is None: self.mass_matrix = np.eye(D)
-        else: self.mass_matrix = mass_matrix
-        self.inv_mass_matrix = np.linalg.inv(self.mass_matrix)
-        self.KE =  lambda p : 0.5*np.dot(p, np.dot(self.mass_matrix, p))
-        self.KE_g =  lambda p : np.dot(self.mass_matrix, p)
+        if mass_matrix is None: self.mass_matrix = np.eye(D).astype(dtype)
+        else: self.mass_matrix = mass_matrix.astype(dtype)
+        self.inv_mass_matrix = np.linalg.inv(self.mass_matrix).astype(dtype)
+        self.KE =  lambda p : 0.5*np.dot(p, np.dot(self.mass_matrix, p)).astype(dtype)
+        self.KE_g =  lambda p : np.dot(self.mass_matrix, p).astype(dtype)
         
         self.leapcount = 0
         self.Vgcount = 0
@@ -150,15 +153,12 @@ class HMC():
     def sample(self, q, p=None,
                n_samples=100, n_burnin=0, step_size=0.1, n_leapfrog=10,
                n_stepsize_adapt=0, target_accept=0.65, jitter_n_leapfrog=True, 
-               verbose=False, **kwargs):
+               verbose=False):
 
         state = Sampler()
         self.step_size = step_size
         self.n_leapfrog = n_leapfrog
         self.verbose = verbose
-        # parse remaining kwargs
-        for key, val in kwargs.items():
-            setattr(self, key, val)
 
         if jitter_n_leapfrog:           # Setup function for leapfrog steps
             self.n_leapfrog_dist = lambda : np.random.randint(1, self.n_leapfrog)
