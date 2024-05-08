@@ -91,51 +91,6 @@ class DualAveragingStepSize():
         return step_size
 
 
-
-# def Hessian_approx(positions, gradients, H=None, approx_type='bfgs'):
-#     if approx_type == 'bfgs':
-#         return BFGS_hessian_approx(positions, gradients, H)
-#     elif approx_type == 'fisher':
-#         raise NotImplementedError
-#     elif approx_type == 'gsm':
-#         raise NotImplementedError
-
-
-# def BFGS_hessian_approx(positions, gradients, H=None):
-#     '''Hessian approximation with BFGS Quasi-Newton Method (B matrix)'''
-#     d = positions.shape[1]
-#     npos = positions.shape[0]
-#     #if H is None: 
-#     #    H = np.eye(d) # initial hessian. Moved to initilization below which is better
-   
-#     nabla = gradients[0]
-#     x = positions[0]
-    
-#     it = 0 
-#     not_pos = 0
-#     point_used = 0 
-#     for i in range(npos-1):
-#         it += 1
-#         x_new = positions[i+1]
-#         nabla_new = gradients[i+1]
-#         s = x_new - x
-#         y = nabla_new - nabla
-#         r = 1/(np.dot(y,s))
-#         if r < 0:               #Curvature condition to ensure positive definite
-#             not_pos +=1 
-#             continue
-#         if (H is None) : #initialize based on, but before first update. Taken from Nocedal
-#             #H = np.eye(x.size) * np.dot(y,s)/np.dot(y, y) #gets confusing if we multiply or divide
-#             H = np.eye(x.size) / np.dot(y,s) *np.dot(y, y) 
-#         point_used +=1
-#         z = np.dot(H, s)
-#         update = np.outer(y, y) / np.dot(s, y) - np.outer(z, z) / np.dot(s, z)
-#         H += update
-#         nabla = nabla_new[:].flatten()
-#         x = x_new[:].flatten()
-#     return H, point_used 
-
-    
 def power_iteration(A, num_iters=100):
 
     # Starting vector
@@ -172,62 +127,4 @@ def mean_sq_jump_distance(sample):
         jump = sample[m + 1, :] - sample[m, :]
         sq_jump.append(jump.dot(jump))
     return np.mean(sq_jump)
-
-
-def inverse_Hessian_approx(positions, gradients, H=None): # needs to be cleaned based on Hessian_approx code
-    '''
-    Inverse Hessian approximation with BFGS Quasi-Newton Method
-    '''
-    d = positions.shape[1]
-    npos = positions.shape[0]
-    if H is None:
-        H = np.eye(d) # initial hessian
-    
-    nabla = gradients[0]
-    x = positions[0]
-    
-    it = 0 
-    not_pos = 0 
-    for i in range(npos-1):
-        it += 1
-        x_new = positions[i+1]
-        nabla_new = gradients[i+1]
-        s = x_new - x
-        y = nabla_new - nabla 
-        y = np.array([y])
-        s = np.array([s])
-        y = np.reshape(y,(d,1)) 
-        s = np.reshape(s,(d,1))
-        r = 1/(y.T@s)
-        if r < 0:               # Curvature condition to ensure positive definite
-            not_pos +=1 
-            continue
-        not_pos = 0 
-        li = (np.eye(d)-(r*((s@(y.T)))))
-        ri = (np.eye(d)-(r*((y@(s.T)))))
-        hess_inter = li@H@ri
-        H = hess_inter + (r*((s@(s.T)))) # BFGS Update
-
-        nabla = nabla_new[:].flatten()
-        x = x_new[:].flatten()
-    
-    return H, not_pos
-
-
-# def stepsize_distribution(epsmean, epsmax, epsmin, distribution='beta'):
-#     if distribution == 'beta':
-#         return beta_dist(epsmean, epsmax, epsmin)
-#     else:
-#         raise NotImplementedError
-
-    
-# def beta_dist(epsmean, epsmax, epsmin):
-#     """Return a beta distribution with mode=eps_mean/2."""
-#     #epsmin = min(epsmin, eps/10)
-#     scale = epsmax-epsmin
-#     eps_scaled = epsmean/epsmax
-#     b = 2 * (1-eps_scaled)**2/eps_scaled
-#     a = 2 * (1-eps_scaled)
-#     dist = beta(a=a, b=b, loc=epsmin, scale=scale)
-#     return dist
 
