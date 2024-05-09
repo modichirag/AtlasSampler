@@ -22,7 +22,7 @@ parser.add_argument('--n_burnin', type=int, default=100, help='number of burnin/
 parser.add_argument('--n_stepsize_adapt', type=int, default=100, help='number of iterations for step size adaptation')
 parser.add_argument('--n_metric_adapt', type=int, default=100, help='number of iterations for metric adaptation')
 parser.add_argument('--target_accept', type=float, default=0.80, help='target acceptance rate')
-parser.add_argument('--stepsize', type=float, default=0.1, help='initial step size')
+parser.add_argument('--step_size', type=float, default=0.1, help='initial step size')
 parser.add_argument('--metric', type=str, default='unit_e', help='metric for NUTS')
 
 
@@ -42,7 +42,7 @@ def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, 
                                 iter_warmup = args.n_burnin,
                                 seed = args.seed,
                                 metric = args.metric,
-                                step_size = args.stepsize,
+                                step_size = args.step_size,
                                 adapt_delta = args.target_accept,
                                 adapt_metric_window = args.n_metric_adapt,
                                 adapt_init_phase = args.n_stepsize_adapt,

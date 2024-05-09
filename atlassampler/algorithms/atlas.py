@@ -54,7 +54,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
                 baseline stepsize/max_stepsize_reduction
         """
 
-        super(Adapt_and_Delay, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
+        super(Atlas, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                         mass_matrix=mass_matrix, offset=offset,
                                         **kwargs)
         if self.min_nleapfrog <= 2:

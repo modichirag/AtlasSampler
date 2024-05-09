@@ -35,6 +35,8 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
         self.n_hessian_attempts = n_hessian_attempts
         self.max_stepsize_reduction = max_stepsize_reduction
         self.constant_trajectory = constant_trajectory
+        self.hessian_mode = hessian_mode
+        self.stepsize_distribution = stepsize_distribution
 
     def get_stepsize_distribution(self, q0, p0, qlist, glist, step_size):
         """
@@ -98,7 +100,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
             return eps_mean, epsf
         
         
-        
+
     def delayed_step(self, q0, p0, qlist, glist, n_leapfrog, step_size, log_prob_accept1):
         """Adapt stepsize for the second proposal using the rejected trajectory."""       
         try:

@@ -2,8 +2,12 @@ import numpy as np
 import os, sys
 import json
 import bridgestan as bs
+from gen_reference_samples import ReferenceSamples
+
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 MODELDIR = '../'
+
+
 
 def write_tmpdata(D, datapath):
     # Data to be written
@@ -23,7 +27,9 @@ def write_tmpdata(D, datapath):
 ##### Setup the models
 def stan_model(name, D=0, 
                bridgestan_path=BRIDGESTAN, 
-               model_directory=MODELDIR):
+               model_directory=MODELDIR, 
+               reference_samples_path=None, 
+               run_nuts=True):
     
     bs.set_bridgestan_path(bridgestan_path)
     stanfile = f"{model_directory}/stan/{name}.stan" 
@@ -40,8 +46,14 @@ def stan_model(name, D=0,
     D = bsmodel.param_num()
     lp = lambda x: bsmodel.log_density(x)
     lp_g = lambda x: bsmodel.log_density_gradient(x)[1]
-    if name == "normal":
-        ref_samples = np.random.normal(0, 1, 10000*D).reshape(1, 10000, D)
+
+    if reference_samples_path is not None:
+        ref_samples = np.load(reference_samples_path)
     else:
-        ref_samples = np.load(f'/mnt/ceph/users/cmodi/PosteriorDB/{name}/samples.npy')
+        try:
+            ref_samples = ReferenceSamples().generate_samples(name, D, run_nuts=run_nuts)
+        except Exception as e:
+            print("Exception in generating reference samples : ", e)
+            ref_samples = None
+
     return bsmodel, D, lp, lp_g, ref_samples, [stanfile, datafile]

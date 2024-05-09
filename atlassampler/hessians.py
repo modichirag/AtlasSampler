@@ -1,11 +1,11 @@
 import numpy as np
 
-def Hessian_approx(positions, gradients, H=None, approx_type='bfgs'):
-    if approx_type == 'bfgs':
+def Hessian_approx(positions, gradients, H=None, mode='bfgs'):
+    if mode == 'bfgs':
         return BFGS_hessian_approx(positions, gradients, H)
-    elif approx_type == 'fisher':
+    elif mode == 'fisher':
         raise NotImplementedError
-    elif approx_type == 'gsm':
+    elif mode == 'gsm':
         raise NotImplementedError
 
 
