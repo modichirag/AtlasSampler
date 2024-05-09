@@ -112,7 +112,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
         ##
         try:
             # Estimate the Hessian given the rejected trajectory, use it to estimate step-size
-            eps1, epsf1 = self.get_stepsize_dist(q0, p0, qlist, glist, step_size)
+            eps1, epsf1 = self.get_stepsize_distribution(q0, p0, qlist, glist, step_size)
             step_size_new = epsf1.rvs(size=1)[0]
             
             # Make the second proposal
@@ -139,7 +139,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
                         log_prob_delayed = -np.inf
 
                 # Hastings
-                eps2, epsf2 = self.get_stepsize_dist(q1, -p1, qlist_ghost, glist_ghost, step_size)
+                eps2, epsf2 = self.get_stepsize_distribution(q1, -p1, qlist_ghost, glist_ghost, step_size)
                 log_prob_eps = epsf2.logpdf(step_size_new) - epsf1.logpdf(step_size_new)
                 log_prob_accept = log_prob_H + log_prob_delayed + log_prob_eps
 
@@ -169,7 +169,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
         """
         try:
             # Estimate the Hessian and the stepsize given the rejected trajectory
-            eps1, epsf1 = self.get_stepsize_dist(q0, p0, qlist, glist, step_size)
+            eps1, epsf1 = self.get_stepsize_distribution(q0, p0, qlist, glist, step_size)
             step_size_new = epsf1.rvs(size=1)[0]
             
             # Make the second proposal
@@ -191,7 +191,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
             else :
                 log_prob_accept_ghost, log_prob_H_ghost, log_prob_N_ghost = log_prob_ghost_list
                 qlist_ghost, plist_ghost, glist_ghost = qpg_list_ghost
-                eps2, epsf2 = self.get_stepsize_dist(q1, -p1, qlist_ghost, glist_ghost, step_size)
+                eps2, epsf2 = self.get_stepsize_distribution(q1, -p1, qlist_ghost, glist_ghost, step_size)
 
                 # Hastings
                 log_prob_delayed = np.log((1-np.exp(log_prob_accept_ghost))) - np.log((1- np.exp(log_prob_accept_first)))

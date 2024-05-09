@@ -5,7 +5,7 @@ from scipy.stats import multivariate_normal
 from .uturn_samplers import HMC_Uturn_Jitter
 from ..util import Sampler, PrintException, power_iteration
 from ..hessians import Hessian_approx
-from ..distributions import stepsize_distribution
+from ..distributions import setup_stepsize_distribution
 
 # Setup MPI environment
 from mpi4py import MPI
@@ -26,6 +26,8 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
                  n_hessian_samples=10, n_hessian_attempts=10, 
                  max_stepsize_reduction=500,
                  constant_trajectory=False,
+                 hessian_mode='bfgs',
+                 stepsize_distribution='beta',
                  **kwargs):
         super(DRHMC_AdaptiveStepsize, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob,
                                                      mass_matrix=mass_matrix, **kwargs)        
@@ -34,7 +36,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
         self.max_stepsize_reduction = max_stepsize_reduction
         self.constant_trajectory = constant_trajectory
 
-    def get_stepsize_dist(self, q0, p0, qlist, glist, step_size):
+    def get_stepsize_distribution(self, q0, p0, qlist, glist, step_size):
         """
         Construct a distribution for stepsize at the current point (q0, p0).
         This is done in three steps-
@@ -63,7 +65,10 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
                 continue
 
             # Estimate Hessian now
-            h_est, points_used = Hessian_approx(np.array(qs[::-1]), np.array(gs[::-1]), H=None)
+            h_est, points_used = Hessian_approx(positions = np.array(qs[::-1]), 
+                                                gradients = np.array(gs[::-1]), 
+                                                H = None, 
+                                                mode = self.hessian_mode)
             if (points_used < self.n_hessian_samples) :
                 if self.verbose: print('skipped too many')
                 i += 1
@@ -86,15 +91,19 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
                 print("negative eigenvalue : ", eigv)
                 raise
             eps_mean = min(0.5*step_size, 0.5*np.sqrt(1/ eigv))
-            epsf = stepsize_distribution(epsmean=eps_mean, epsmax=step_size, epsmin=step_size/self.max_stepsize_reduction)
+            epsf = setup_stepsize_distribution(epsmean = eps_mean, 
+                                               epsmax = step_size, 
+                                               epsmin = step_size/self.max_stepsize_reduction, 
+                                               distribution = self.stepsize_distribution)
             return eps_mean, epsf
         
         
-    def delayed_step(self, q0, p0, qlist, glist, n_leapfrog, step_size, log_prob_accept1):
         
+    def delayed_step(self, q0, p0, qlist, glist, n_leapfrog, step_size, log_prob_accept1):
+        """Adapt stepsize for the second proposal using the rejected trajectory."""       
         try:
             # Estimate the Hessian given the rejected trajectory, use it to estimate step-size
-            eps1, epsf1 = self.get_stepsize_dist(q0, p0, qlist, glist, step_size)
+            eps1, epsf1 = self.get_stepsize_distribution(q0, p0, qlist, glist, step_size)
             step_size_new = epsf1.rvs(size=1)[0]
             
             # Make the second proposal
@@ -108,7 +117,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
             # Ghost trajectory and corresponding stepsize distribution
             q1_ghost, p1_ghost, qlist_ghost, glist_ghost = self.leapfrog(q1, -p1, n_leapfrog, step_size)
             log_prob_accept2 = self.accept_log_prob([q1, -p1], [q1_ghost, p1_ghost])
-            eps2, epsf2 = self.get_stepsize_dist(q1, -p1, qlist_ghost, glist_ghost, step_size)
+            eps2, epsf2 = self.get_stepsize_distribution(q1, -p1, qlist_ghost, glist_ghost, step_size)
             steplist = [eps1, eps2, step_size_new]
 
             # Calcualte different Hastings corrections
@@ -141,6 +150,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
             Hs, steplist = [0, 0],[0, 0, 0]
             return qf, pf, accepted, Hs, steplist
             
+
         
     def step(self, q, n_leapfrog, step_size=None):
 
