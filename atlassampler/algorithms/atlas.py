@@ -11,9 +11,9 @@ comm = MPI.COMM_WORLD
 wrank = comm.Get_rank()
 wsize = comm.Get_size()
 
-__all__ = ["Adapt_and_Delay"]
+__all__ = ["Atlas"]
 
-class Adapt_and_Delay(DRHMC_AdaptiveStepsize):
+class Atlas(DRHMC_AdaptiveStepsize):
     """
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 

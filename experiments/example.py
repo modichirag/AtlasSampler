@@ -1,14 +1,8 @@
 import numpy as np
-import os, sys, time
+import os, sys
 import matplotlib.pyplot as plt
 
-#sys.path.append('../adsampler/')
-#sys.path.append('../adsampler/algorithms/')
-from adsampler import HMC, Adapt_and_Delay
-# from hmc import HMC
-# from uturn_samplers import HMC_Uturn_Sampler, HMC_Uturn_Jitter_Sampler 
-# from stepadapt_samplers import DRHMC_AdaptiveStepsize
-# from adsampler import ADSampler
+from atlassampler import HMC, Atlas
 from adsampler.wrappers import cmdstanpy_wrapper
 import logging
 import cmdstanpy as csp
@@ -30,7 +24,6 @@ import argparse
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--exp', type=str, help='which experiment')
 parser.add_argument('-n', type=int, default=0, help='dimensionality or model number')
-#arguments for GSM
 parser.add_argument('--seed', type=int, default=999, help='seed')
 parser.add_argument('--n_leapfrog', type=int, default=40, help='number of leapfrog steps')
 parser.add_argument('--n_samples', type=int, default=1001, help='number of samples')
@@ -41,7 +34,7 @@ parser.add_argument('--target_accept', type=float, default=0.80, help='target ac
 parser.add_argument('--step_size', type=float, default=0.1, help='initial step size')
 parser.add_argument('--offset', type=float, default=1.0, help='offset for uturn sampler')
 parser.add_argument('--constant_trajectory', type=int, default=0, help='run hmc')
-parser.add_argument('--probabilistic', type=int, default=0, help='run hmc')
+parser.add_argument('--probabilistic', type=int, default=1, help='run hmc')
 parser.add_argument('--hmc', type=int, default=0, help='run hmc')
 parser.add_argument('--nuts', type=int, default=0, help='run nuts')
 #arguments for path name
@@ -145,10 +138,10 @@ np.random.seed(0)
 #                                 constant_trajectory=args.constant_trajectory,
 #                                 high_nleap_percentile=50,
 #                                 min_nleapfrog=1, max_nleapfrog=128, offset=args.offset)
-kernel = Adapt_and_Delay(D, lp, lp_g, mass_matrix=np.eye(D), 
+kernel = Atlas(D, lp, lp_g, mass_matrix=np.eye(D), 
                    constant_trajectory=args.constant_trajectory,
                    probabilistic=args.probabilistic,
-                   min_nleapfrog=3, max_nleapfrog=128, offset=args.offset)
+                   min_nleapfrog=3, max_nleapfrog=1024, offset=args.offset)
 
 sampler = kernel.sample(q0, n_leapfrog=args.n_leapfrog, step_size=step_size, n_samples=n_samples, n_burnin=n_burnin,
                         n_stepsize_adapt=args.n_stepsize_adapt,
