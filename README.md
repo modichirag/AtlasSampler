@@ -1,2 +1,2 @@
-# ADSampler
-Adapt and delay sampler for robust HMC sampling
+# Atlas Sampler
+Adapting Trajectory Lenght and Stepsize for Hamiltonian Monte Carlo in a delayed rejection framework. 

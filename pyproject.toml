@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "adsampler"
+name = "atlassampler"
 version = "0.0.1"
 authors = [
   { name="Chirag Modi", email="modichirag92@gmail.com" },
 ]
-description = "Adapt and Delay Sampler"
+description = "Adapting trajectory length and stepsize for HMC in a delayed rejection framework."
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -29,7 +29,7 @@ full = [
 "scipy"]
 
 [project.urls]
-Homepage = "https://github.com/modichirag/ADSampler/"
+Homepage = "https://github.com/modichirag/AtlasSampler/"
 
 [tool.setuptools.packages.find]
-include = ["adsampler"]
+include = ["src"]
