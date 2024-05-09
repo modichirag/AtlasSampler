@@ -3,7 +3,6 @@ import os, sys
 import matplotlib.pyplot as plt
 
 from atlassampler import Atlas
-from adsampler.wrappers import cmdstanpy_wrapper
 import logging
 import cmdstanpy as csp
 csp.utils.get_logger().setLevel(logging.ERROR)
@@ -18,7 +17,8 @@ wsize = comm.Get_size()
 print('My rank is ',wrank)
 
 # Set some paths
-SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
+# SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
+SAVEFOLDER = './tmp/'
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 MODELDIR = '../'
 
