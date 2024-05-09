@@ -32,4 +32,4 @@ full = [
 Homepage = "https://github.com/modichirag/AtlasSampler/"
 
 [tool.setuptools.packages.find]
-include = ["src"]
+include = ["atlassampler"]

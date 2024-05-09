@@ -3,9 +3,7 @@ import os, sys
 import json
 import bridgestan as bs
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
-bs.set_bridgestan_path(BRIDGESTAN)
-CURR_DIR = "/mnt/home/cmodi/Research/Projects/ADSampler/" #os.getcwd()
-
+MODELDIR = '../'
 
 def write_tmpdata(D, datapath):
     # Data to be written
@@ -23,16 +21,20 @@ def write_tmpdata(D, datapath):
 
 
 ##### Setup the models
-def setup_model(name, D=0):
-    stanfile = f"{CURR_DIR}/stan/{name}.stan" 
+def stan_model(name, D=0, 
+               bridgestan_path=BRIDGESTAN, 
+               model_directory=MODELDIR):
+    
+    bs.set_bridgestan_path(bridgestan_path)
+    stanfile = f"{model_directory}/stan/{name}.stan" 
     if D != 0:
-        print(f"{CURR_DIR}/stan/{name}.data.json")
-        datafile = write_tmpdata(D, f"{CURR_DIR}/stan/{name}.data.json")
+        print(f"{model_directory}/stan/{name}.data.json")
+        datafile = write_tmpdata(D, f"{model_directory}/stan/{name}.data.json")
     else:
-        if os.path.isfile(f"{CURR_DIR}/stan/{name}.data.json"):
-            datafile = f"{CURR_DIR}/stan/{name}.data.json"
-        elif os.path.isfile(f"{CURR_DIR}/stan/{name}.json"):
-            datafile = f"{CURR_DIR}/stan/{name}.json"
+        if os.path.isfile(f"{model_directory}/stan/{name}.data.json"):
+            datafile = f"{model_directory}/stan/{name}.data.json"
+        elif os.path.isfile(f"{model_directory}/stan/{name}.json"):
+            datafile = f"{model_directory}/stan/{name}.json"
     bsmodel = bs.StanModel.from_stan_file(stanfile, datafile)
 
     D = bsmodel.param_num()

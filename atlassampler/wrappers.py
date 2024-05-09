@@ -1,6 +1,5 @@
 import numpy as np
-import sys, os
-import cmdstanpy as csp
+import os
 
 def cmdstanpy_wrapper(draws_pd, savepath=None):
 
