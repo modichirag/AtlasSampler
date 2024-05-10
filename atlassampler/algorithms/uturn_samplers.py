@@ -16,13 +16,17 @@ __all__ = ["HMC_Uturn", "HMC_Uturn_Jitter"]
 
 
 class HMC_Uturn(HMC):
-    """
-    U-turn sampler adaptively estimates the trajectory length for each iteration.
-    Each iteration has 4 steps-
-        1. Run a forward trajectory until a U-turn (L).
-        2. Randomly sample a proposal from this trajectory (N).
-        3. Run the reverse trajectory from this sample to its U-turn point (LB).
-        4. Evaluate the Hastings correction for choosing N in either direction.
+    """GIST sampler with U-turn criterion.
+    
+    Warmup: 
+    In the warmup phase, the algorithm first adapts the baseline stepsize with dual averaging to
+    target an acceptance rate of ``target_accept``.
+
+    Sampling:
+    In every iteration, the algorithm runs a trajectory with baseline step_size uptil U-turn.
+    Then in makes a proposal in the [``offset``, 1) fraction of the trajectory.
+    When ``offset`` = 1, it randomly chooses the offset for every iteration in the range [0.33, 0.66).
+    <<Need a better way of handling this argument>>
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
                 offset=None, min_offset=0.33, max_offset=0.66,
@@ -187,11 +191,21 @@ class HMC_Uturn(HMC):
 
 ###################################################
 class HMC_Uturn_Jitter(HMC_Uturn):
-    """
-    U-turn Jitter sampler constructs an empirical distribution of trajectory lengths
-    in the warmup stage by evaluating U-turn lengths for a few iterations. 
-    At the end of warmup, it combines this empirical distribution from all chains.
-    During sampling, it randomly samples a trajectory length from this distribution. 
+    """GIST sampler with pre-constructed U-turn distribution.
+    
+    
+    Warmup: 
+    In the warmup phase, it adapts the stepsize and the trajectory lenght as follows:
+        1. Baseline stepsize is adapted with dual averaging to target an acceptance rate of ``target_accept``.
+        2. Next, Atlas constructs an empirical distribution of trajectory lengths (edist_traj).
+        It run ``n_leapfrog_adapt`` iterations upto U-turn in every chain and stores the trajectory length.
+        Then it combines this information from all chains, removes the lenghts that are too short or too long
+        (outside ``low_nleap_percentile`` and ``high_nleap_percentile``) and saves the remaining lengths
+        to construct edist_traj.
+
+    Sampling:
+    In every iteration, the trajecotry length is sampled from edist_traj and the leapfrog integration is done
+    using the baseline stpesize.
     """
     
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, offset=0.5, 

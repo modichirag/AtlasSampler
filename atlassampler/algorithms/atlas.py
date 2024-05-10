@@ -14,14 +14,52 @@ wsize = comm.Get_size()
 __all__ = ["Atlas"]
 
 class Atlas(DRHMC_AdaptiveStepsize):
-    """
+    """Atlas is "Adaptive Trajectory Length And Stepsize" sampler. 
+    
+    Warmup: 
+    In the warmup phase, Atlas first adapts the stepsize and the trajectory lenght as follows:
+        1. Baseline stepsize is adapted with dual averaging to target an acceptance rate of ``target_accept``.
+        2. Next, Atlas constructs an empirical distribution of trajectory lengths (edist_traj).
+        It run ``n_leapfrog_adapt`` iterations upto U-turn in every chain and stores the trajectory length.
+        Then it combines this information from all chains, removes the lenghts that are too short or too long
+        (outside ``low_nleap_percentile`` and ``high_nleap_percentile``) and saves the remaining lengths
+        to construct edist_traj.
+
+    Sampling:
+    Every iteration of Atlas consists of 2 stages.
+
+        1. Preliminary stage
+        Atlas first runs a preliminary trajectory with baseline step_size uptil U-turn.
+        If the number_of_steps_to_u-turn > ``min_nleapfrog`` (default = 3), it declares a failure and skips to
+        `delayed_step_upon_failure`. Otherwise, it follows GIST algorithm to make a proposal in the
+        [``offset``, 1) fraction of the trajectory. If this is accepted, algorithm moves to next iteration. 
+        If not, then it moves to delayed stage.
+
+        2. Delayed stage
+        There are two types of delayed stages depending on the preliminary stage outcome:
+        a. Delayed step upon failure:
+            This is executed when number_of_steps_to_u-turn > min_nleapfrog, indicating bad stepsize.
+            This step locally adapts stepsize by constructing an approximate local Hessian.
+            The trajectory length is sampled from the empirical distribution (edist_traj) constructed in warmup.
+            If ``constant_trajectory`` != 0, the number of leapfrog steps is scaled by the ratio of stepsize
+            to baseline stepsize.
+        b. Delayed step:
+            This is executed when the preliminary step is rejected for the GIST proposal.
+            If ``probabilistic`` == 0, then the algorithm always makes this delayed proposal.
+            If ``probabilistic`` == 1, then the algorithm makes this delayed proposal only if the preliminary stage is rejected
+            *not due to a sub u-turn.*
+            In this stage, the stepsize is locally adapted as the previous case. However the number of leaprog steps
+            is determined by the number of steps to the proposal made in the preliminary stage. If ``constant_trajectory`` != 2,
+            the number of leapfrog steps is kept the same. Otherwise it is scaled by the ratio of stepsize to baseline stepsize.
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
                  offset=None, 
                  constant_trajectory=0,
                  probabilistic=0,
+                 low_nleap_percentile=10, 
+                 high_nleap_percentile=50, 
                  **kwargs):
-        """Initialize an instance of ADSampler.
+        """Initialize an instance of Atlas.
         
         Args:
             D (int): dimensionality of the parameter space
@@ -47,7 +85,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
                 by reducing step-size with a factor of 2 on each attempt. 
             low_nleap_percentile (int, default=10): percentile below which u-turn trajectories
                 in the empirical trajectory length distribution of warmup are discarded.
-            high_nleap_percentile (int, default=90): percentile above which u-turn trajectories
+            high_nleap_percentile (int, default=50): percentile above which u-turn trajectories
                 in the empirical trajectory length distribution of warmup are discarded.
             nleap_factor (float, default=1.): scale the empirical distribution of trajectory lengths.
             max_stepsize_reduction (float, default=500): minimum possible step-size is set to be the
@@ -55,8 +93,10 @@ class Atlas(DRHMC_AdaptiveStepsize):
         """
 
         super(Atlas, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
-                                        mass_matrix=mass_matrix, offset=offset,
-                                        **kwargs)
+                                    mass_matrix=mass_matrix, offset=offset,
+                                    low_nleap_percentile=low_nleap_percentile,
+                                    high_nleap_percentile=high_nleap_percentile, 
+                                    **kwargs)
         if self.min_nleapfrog <= 2:
             print("min nleapfrog should at least be 2 for delayed proposals")
             raise

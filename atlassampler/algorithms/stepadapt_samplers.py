@@ -15,12 +15,28 @@ wsize = comm.Get_size()
 
 
 class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
-    """
-    2-step Delayed rejection HMC sampler where upon rejection,
-    the step-size for the second proposal is adapted automatically by estimating the local Hessian
-    using the points from rejected trajectory. 
-    The number of leapfrog steps can be kept fixed or a distribution of trajectory lenghts
-    can be empirically constructed during the warmup.
+    """Adapting stepsize in delayed rejection framework.
+    
+    Warmup: 
+    In the warmup phase, the algorithm first adapts the stepsize and the trajectory length as follows:
+        1. Baseline stepsize is adapted with dual averaging to target an acceptance rate of ``target_accept``.
+        2. If ``n_leapfrog_adapt`` is 0, then it uses the `n_leapfrog` as the number of leapfrog steps. 
+        Else it constructs an empirical distribution of trajectory lengths (edist_traj).
+        It run ``n_leapfrog_adapt`` iterations upto U-turn in every chain and stores the trajectory length.
+        Then it combines this information from all chains, removes the lenghts that are too short or too long
+        (outside ``low_nleap_percentile`` and ``high_nleap_percentile``) and saves the remaining lengths
+        to construct edist_traj.
+
+    Sampling:
+    This is a 2-step delayed rejection version of HMC with adaptive stepsize. The algorithm has two stages:
+
+        1. In the first stage, the trajectory length is sampled from the empirical distribution (edist_traj)
+        constructed in warmup and integration is done with baseline stepsize. If this is accepted,
+        algorithm moves to next iteration. If not, then it moves to delayed stage.
+
+        2. Delayed stage: This step locally adapts stepsize by constructing an approximate local Hessian
+        using the trajectory from the previous stage. If ``constant_trajectory`` = 0, the number of leapfrog steps
+        is the same as the first stage, otherwise  it scaled by the ratio of stepsize to baseline stepsize.
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
                  n_hessian_samples=10, n_hessian_attempts=10, 
