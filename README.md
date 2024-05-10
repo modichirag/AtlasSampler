@@ -1,5 +1,5 @@
 # Atlas Sampler
-Adapting Trajectory Lenght and Stepsize for Hamiltonian Monte Carlo in a delayed rejection framework. 
+Adapting Trajectory Length and Stepsize (ATLAS) for Hamiltonian Monte Carlo in a delayed rejection framework. 
 
 This repository contains research code and is currently under active development. 
 To use the package, clone the repo, build and install the code locally.
