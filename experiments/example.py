@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--exp', type=str, help='which experiment')
 parser.add_argument('-n', type=int, default=0, help='dimensionality or model number')
 parser.add_argument('--seed', type=int, default=999, help='seed')
-parser.add_argument('--n_leapfrog', type=int, default=40, help='number of leapfrog steps')
+parser.add_argument('--n_leapfrog', type=int, default=20, help='number of leapfrog steps')
 parser.add_argument('--n_samples', type=int, default=1001, help='number of samples')
 parser.add_argument('--n_burnin', type=int, default=0, help='number of iterations for burn-in')
 parser.add_argument('--n_stepsize_adapt', type=int, default=200, help='number of iterations for step size adaptation')
@@ -44,16 +44,13 @@ parser.add_argument('--min_leapfrog', type=int, default=3, help='minimum number 
 parser.add_argument('--max_leapfrog', type=int, default=1024, help='maximum number of leapfrog steps')
 
 args = parser.parse_args()
-experiment = args.exp
-n = args.n
-
-print("Model name : ", experiment)
-model, D, lp, lp_g, ref_samples, files = models.stan_model(experiment, n, 
+print("Model name : ", args.exp)
+model, D, lp, lp_g, ref_samples, files = models.stan_model(args.exp, args.n, 
                                                             bridgestan_path=BRIDGESTAN, 
                                                             model_directory=MODELDIR, 
                                                             reference_samples_path=None)
-if n!= 0 : savepath = f'{SAVEFOLDER}/{experiment}'
-else: savepath = f'{SAVEFOLDER}/{experiment}-{D}/'
+if args.n!= 0 : savepath = f'{SAVEFOLDER}/{args.exp}'
+else: savepath = f'{SAVEFOLDER}/{args.exp}-{D}/'
 
 if ref_samples is not None:
     assert len(ref_samples.shape) == 3

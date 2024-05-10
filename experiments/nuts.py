@@ -20,14 +20,14 @@ parser.add_argument('--n_chains', type=int, default=16, help='number of chains')
 parser.add_argument('--n_samples', type=int, default=100, help='number of samples')
 parser.add_argument('--n_burnin', type=int, default=100, help='number of burnin/warmup iterations')
 parser.add_argument('--n_stepsize_adapt', type=int, default=100, help='number of iterations for step size adaptation')
-parser.add_argument('--n_metric_adapt', type=int, default=100, help='number of iterations for metric adaptation')
+parser.add_argument('--n_metric_adapt', type=int, default=0, help='number of iterations for metric adaptation')
 parser.add_argument('--target_accept', type=float, default=0.80, help='target acceptance rate')
 parser.add_argument('--step_size', type=float, default=0.1, help='initial step size')
 parser.add_argument('--metric', type=str, default='unit_e', help='metric for NUTS')
 
 
 # NUTS
-def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, return_sampler=False):
+def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, return_all=False):
 
     if verbose: print("Run NUTS")
     
@@ -62,8 +62,8 @@ def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, 
         np.save(f'{savefolder}/leapfrogs', n_leapfrogs)
         np.save(f'{savefolder}/stepsize', step_size)
 
-    if return_sampler: 
-         return samples, sampler
+    if return_all: 
+         return samples, sampler, step_size, n_leapfrogs
     else:
          return samples
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     experiment = args.exp
     n = args.n
-    parentfolder = '/mnt/ceph/users/cmodi/atlas/'
+    parentfolder = '/mnt/ceph/users/cmodi/atlassampler/'
     print("Model name : ", experiment)
     model, D, lp, lp_g, ref_samples, files = models.stan_model(experiment, n)
     if n!= 0 : savefolder = f'{parentfolder}/{experiment}/nuts/target{args.target_accept:0.2f}/'
