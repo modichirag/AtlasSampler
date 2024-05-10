@@ -44,15 +44,18 @@ def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, 
                                 metric = args.metric,
                                 step_size = args.step_size,
                                 adapt_delta = args.target_accept,
-                                adapt_metric_window = args.n_metric_adapt,
-                                adapt_init_phase = args.n_stepsize_adapt,
-                                adapt_step_size = args.n_stepsize_adapt,
+                                ## cmdstanpy bug? does not adapt if specified
+                                #adapt_engaged = True,
+                                #adapt_metric_window = args.n_metric_adapt, 
+                                #adapt_init_phase = args.n_stepsize_adapt,
+                                #adapt_step_size = args.n_stepsize_adapt,
                                 show_console = False,
                                 show_progress = verbose,
                                 save_warmup = False)
 
     draws_pd = sampler.draws_pd()
     step_size = sampler.step_size
+    metric = sampler.metric
     samples, n_leapfrogs = cmdstanpy_wrapper(draws_pd)
     difference = np.diff(samples[..., 0])
     print("accept/reject for NUTS: ", difference.size - (difference == 0 ).sum(),  (difference == 0 ).sum())
@@ -61,6 +64,7 @@ def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, 
         np.save(f'{savefolder}/samples', samples)
         np.save(f'{savefolder}/leapfrogs', n_leapfrogs)
         np.save(f'{savefolder}/stepsize', step_size)
+        if metric is not None: np.save(f'{savefolder}/metric', metric)
 
     if return_all: 
          return samples, sampler, step_size, n_leapfrogs

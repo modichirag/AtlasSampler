@@ -18,7 +18,7 @@ def plot_histograms(samples_list, nplot, labels, savefolder=None, suptitle='', r
         for j in range(nitems):
             ax[i].hist(samples_list[j][..., i].flatten(), density=True, alpha=0.5, bins='auto', label=labels[j])
     
-    plt.legend()
+    plt.legend(loc=1)
     plt.suptitle(suptitle)
     if savefolder is not None: plt.savefig(f"{savefolder}/hist")
     return fig, ax
@@ -29,34 +29,7 @@ def plot_corner():
 
 
 def boxplot_cost():
-
-    toplot, toplot2, lbls = [], [], []
-    for key in data.keys():
-        toplot.append(data[key][0][:, -1]/data['nuts'][0][:, -1].mean(axis=0))
-        lbls.append(key)
-
-    ax[0].boxplot(toplot, patch_artist=True,
-                boxprops=dict(facecolor='C0', color='C0', alpha=0.5), labels=lbls);
-
-    for axis in [ax[0]]:
-        axis.set_xticks(axis.get_xticks(), axis.get_xticklabels(), rotation=45, ha='right')
-    # plt.boxplot(suturn.std(axis=1)[:, d], patch_artist=True,
-    #             boxprops=dict(facecolor='C1', color='C1'), labels=[1]);
-
-    for axis in ax:
-        axis.axvline(1.5, color='r', lw=0.5)
-        for j in range(int(len(data.keys())/4)):
-            axis.axvline(4.5 + j*4, color='r', lw=0.5)
-        # axis.axvline(4.5, color='r', lw=0.5)
-        # axis.axvline(7.5, color='r', lw=0.5)
-        # axis.axvline(10.5, color='r', lw=0.5)
-        # axis.axvline(14.5, color='r', lw=0.5)
-        axis.axhline(1, color='k', ls="--")
-        axis.grid(which='both', lw=0.3)
-        
-    ax[0].set_ylabel(r'#Grad/#Grad-NUTS', fontsize=12)
-    plt.suptitle(f'{exp} : # Grad evals')
-    plt.tight_layout()
+    pass
 
 
 def boxplot_rmse(reference_samples, samples_list, counts_list, labels, 
@@ -100,3 +73,30 @@ def boxplot_rmse(reference_samples, samples_list, counts_list, labels,
     if savefolder is not None: plt.savefig(f"{savefolder}/{savename}")
     
     return fig, ax
+
+
+
+# def corner(samples, savepath="./tmp/", savename='corner', save=True, maxdims=10):
+#     '''Make corner plot for the distribution from samples                                                                                                                                                                                                                                                                     
+#     '''
+#     D = min(samples.shape[1], maxdims)
+
+#     fig, ax = plt.subplots(D, D, figsize=(3*D, 2*D), sharex='col')
+
+#     for i in range(D):
+#         for j in range(D):
+#             if i==j:
+#                 ax[i, j].hist(samples[:, i])
+#                 ax[i, j].set_title('W[{}]'.format(i))
+#             elif i>j:
+#                 ax[i, j].plot(samples[:, j], samples[:, i], '.')
+#             else:
+#                 ax[i, j].axis('off')
+
+#     plt.tight_layout()
+
+#     if save:
+#         plt.savefig(savepath + savename)
+#         plt.close()
+#     else: return fig, ax
+

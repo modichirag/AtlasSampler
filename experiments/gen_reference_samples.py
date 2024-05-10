@@ -1,12 +1,38 @@
 import numpy as np
-
+from atlassampler import util
+import nuts
 
 class ReferenceSamples():
 
 
-    def __init__(self, ):
-        self.analytic_models = ['normal', 'funnel', 'rosenbrock', 'multifunnel']
+    def __init__(self,
+                 stanfile,
+                 datafile,
+                 model_directory,
+                 n_chains=16, 
+                 n_burnin=1000,
+                 step_size=0.01,
+                 target_accept=0.95, 
+                 n_metric_adapt=1000, 
+                 n_stepsize_adapt=1000, 
+                 metric='diag', 
+                 seed=123,
+                 savefolder=None):
 
+        self.analytic_models = ['normal', 'funnel', 'rosenbrock', 'multifunnel']
+        self.model_directory = model_directory
+        self.stanfile = stanfile
+        self.datafile = datafile
+        self.n_chains = n_chains
+        #self.n_burnin = n_burnin
+        self.n_burnin = n_burnin + n_metric_adapt + n_stepsize_adapt 
+        self.step_size = step_size
+        self.target_accept = target_accept
+        self.n_metric_adapt = 0 #n_metric_adapt #cmdstanpy bug?
+        self.n_stepsize_adapt = 0 #n_stepsize_adapt
+        self.metric = metric
+        self.seed = seed
+        self.savefolder = savefolder
 
     def gen_analytic_samples(self):
 
@@ -45,19 +71,38 @@ class ReferenceSamples():
 
 
     def nuts_samples(self):
-        raise NotImplementedError
+
+        print("Running nuts to generate reference samples.\nThis can take time")
+
+        args = {}
+        args['n_chains'] = self.n_chains
+        args['n_samples'] = self.n_samples
+        args['n_burnin'] = self.n_burnin
+        args['seed'] = self.seed
+        args['metric'] = self.metric
+        args['step_size'] = self.step_size
+        args['target_accept'] = self.target_accept
+        args['n_metric_adapt'] = self.n_metric_adapt
+        args['n_stepsize_adapt'] = self.n_stepsize_adapt
+
+        args = util.Objectify(args)
+        print(args)
+        print(args.n_samples)
+        samples = nuts.run_nuts(self.stanfile, self.datafile, args,
+                                seed=args.seed, savefolder=self.savefolder, verbose=True)
+        return samples
 
 
-    def generate_samples(self, exp, D, n_samples=100000, chain_index=True, run_nuts=True):
+    def generate_samples(self, exp, D, chain_index=True, run_nuts=True):
         self.D = D
         self.exp = exp
-        self.n_samples = n_samples
         self.chain_index = chain_index
-        
         if exp in self.analytic_models:
+            self.n_samples = 100000
             return self.gen_analytic_samples()
         else:
             if run_nuts:
+                self.n_samples = 10000
                 return self.nuts_samples()
             else:
                 return None

@@ -8,7 +8,6 @@ BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 MODELDIR = '../'
 
 
-
 def write_tmpdata(D, datapath):
     # Data to be written
     dictionary = {
@@ -25,33 +24,41 @@ def write_tmpdata(D, datapath):
 
 
 ##### Setup the models
-def stan_model(name, D=0, 
+def stan_model(exp, D=0, 
                bridgestan_path=BRIDGESTAN, 
                model_directory=MODELDIR, 
                reference_samples_path=None, 
                run_nuts=True):
     
     bs.set_bridgestan_path(bridgestan_path)
-    stanfile = f"{model_directory}/stan/{name}.stan" 
+    stanfile = f"{model_directory}/stan/{exp}.stan" 
     if D != 0:
-        print(f"{model_directory}/stan/{name}.data.json")
-        datafile = write_tmpdata(D, f"{model_directory}/stan/{name}.data.json")
+        print(f"{model_directory}/stan/{exp}.data.json")
+        datafile = write_tmpdata(D, f"{model_directory}/stan/{exp}.data.json")
     else:
-        if os.path.isfile(f"{model_directory}/stan/{name}.data.json"):
-            datafile = f"{model_directory}/stan/{name}.data.json"
-        elif os.path.isfile(f"{model_directory}/stan/{name}.json"):
-            datafile = f"{model_directory}/stan/{name}.json"
+        datafile = f"{model_directory}/stan/{exp}.data.json"
+        if os.path.isfile(datafile): pass
+        else:
+            datafile = f"{model_directory}/stan/{exp}.json"
+            if os.path.isfile(datafile): pass
+            else : raise FileNotFoundError
     bsmodel = bs.StanModel.from_stan_file(stanfile, datafile)
 
     D = bsmodel.param_num()
     lp = lambda x: bsmodel.log_density(x)
     lp_g = lambda x: bsmodel.log_density_gradient(x)[1]
 
-    if reference_samples_path is not None:
-        ref_samples = np.load(reference_samples_path)
-    else:
+    # load reference samples. Run NUTS if not found.
+    try:
+        ref_samples = np.load(reference_samples_path + '/samples.npy')
+    except Exception as e:
+        print("Exception in loading reference samples: ", e)
         try:
-            ref_samples = ReferenceSamples().generate_samples(name, D, run_nuts=run_nuts)
+            ref_samples_object = ReferenceSamples(stanfile = stanfile,
+                                                  datafile = datafile,
+                                                  model_directory = model_directory,
+                                                  savefolder = reference_samples_path)
+            ref_samples = ref_samples_object.generate_samples(exp, D, run_nuts=run_nuts)
         except Exception as e:
             print("Exception in generating reference samples : ", e)
             ref_samples = None
