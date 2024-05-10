@@ -26,5 +26,22 @@ The script takes different arguments to customize the sampler. For example, a ty
 ```
 mpirun -n 8 python -u example.py --exp funnel -n 10  --n_samples 5000 --n_stepsize_adapt 200 --n_leapfrog_adapt 200 --constant_trajectory 1  --probabilistic 1 --target_accept 0.70
 ```
-For most problems, including funnel and rosenbrock, the default values of these parameters should work.
+For most problems, including funnel and rosenbrock, the default values of these parameters should work well.
 
+
+## Comparison with NUTS
+Script `experiments/compare_atlas_nuts.py` runs NUTS and Atlas on a particular problem with the same stepsize as tuned by NUTS. <br>
+The generated samples are saved in the path specified by `SAVEFOLDER` at the top of the script. <br>
+The script also generates reference samples by running NUTS with target accepatance = 0.95 for non-analytic model.
+These are saved in the path specified by the path `REFERENCE_FOLDER` at the top of the script. <br>
+These reference samples are used to generate diagnostic plots comparing-
+i) the cost (number of gradient evaluations) and ii) RMSE on z-scaled parameters for NUTS and Atlas.
+These are also saved in the `SAVEFOLDER`.
+
+Example calls looks like this
+```
+# For a 2D Rosenbrock
+mpirun -n 8 python -u compare_atlas_nuts.py --exp rosenbrock -n 1  --n_samples 5000 
+# For a non-analytic model like hmm
+mpirun -n 8 python -u compare_atlas_nuts.py --exp hmm  --n_samples 5000 
+```
