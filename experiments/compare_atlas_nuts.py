@@ -1,3 +1,7 @@
+"""
+Script to run nuts and atlas on the same problem with the stepsize tuned by nuts, and compare results. 
+The script also generates reference samples by running nuts with target acceptance of 0.95 if needed.
+"""
 import numpy as np
 import os, sys
 import matplotlib.pyplot as plt
@@ -10,7 +14,7 @@ csp.utils.get_logger().setLevel(logging.ERROR)
 
 import models
 import plotting
-from nuts import run_nuts
+import nuts
 
 # Setup MPI environment
 from mpi4py import MPI
@@ -20,8 +24,10 @@ wsize = comm.Get_size()
 print('My rank is ',wrank)
 
 # Set some paths
-# SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
+#SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
+#REFERENCE_FOLDER = "/mnt/ceph/users/cmodi/PosteriorDB/"
 SAVEFOLDER = './tmp/'
+REFERENCE_FOLDER = "./tmp/reference/"
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 MODELDIR = '../'
 
@@ -33,9 +39,9 @@ parser.add_argument('-n', type=int, default=0, help='dimensionality or model num
 parser.add_argument('--seed', type=int, default=999, help='seed')
 parser.add_argument('--n_leapfrog', type=int, default=20, help='number of leapfrog steps')
 parser.add_argument('--n_samples', type=int, default=1001, help='number of samples')
-parser.add_argument('--n_burnin', type=int, default=100, help='number of iterations for burn-in')
-parser.add_argument('--n_stepsize_adapt', type=int, default=200, help='number of iterations for step size adaptation')
-parser.add_argument('--n_leapfrog_adapt', type=int, default=200, help='number of iterations for trajectory length adaptation')
+parser.add_argument('--n_burnin', type=int, default=200, help='number of iterations for burn-in')
+parser.add_argument('--n_stepsize_adapt', type=int, default=100, help='number of iterations for step size adaptation')
+parser.add_argument('--n_leapfrog_adapt', type=int, default=100, help='number of iterations for trajectory length adaptation')
 parser.add_argument('--target_accept', type=float, default=0.80, help='target acceptance')
 parser.add_argument('--step_size', type=float, default=0.1, help='initial step size')
 parser.add_argument('--offset', type=float, default=1.0, help='offset for uturn sampler')
@@ -44,6 +50,8 @@ parser.add_argument('--probabilistic', type=int, default=1, help='probabilistic 
 parser.add_argument('--suffix', type=str, default="", help='suffix, default=""')
 parser.add_argument('--min_leapfrog', type=int, default=3, help='minimum number of leapfrog steps')
 parser.add_argument('--max_leapfrog', type=int, default=1024, help='maximum number of leapfrog steps')
+parser.add_argument('--low_nleap_percentile', type=int, default=10, help='lower percentile of trajectory distribution')
+parser.add_argument('--high_nleap_percentile', type=int, default=50, help='higher percentile of trajectory distribution')
 parser.add_argument('--metric', type=str, default="unit_e", help='metric for NUTS')
 parser.add_argument('--n_metric_adapt', type=int, default=0, help='number of iterations for NUTS metric adaptation')
 parser.add_argument('--nuts', type=int, default=0, help='run nuts')
@@ -52,16 +60,21 @@ parser.add_argument('--nuts', type=int, default=0, help='run nuts')
 args = parser.parse_args()
 args.n_chains = wsize
 print("Model name : ", args.exp)
+
+# Load model and reference samples in rank 0. Generate if necessary.
+reference_path =  f'{REFERENCE_FOLDER}/{args.exp}/'
+run_nuts = bool(not wrank)
 model, D, lp, lp_g, ref_samples, files = models.stan_model(args.exp, args.n, 
-                                                            bridgestan_path=BRIDGESTAN, 
-                                                            model_directory=MODELDIR, 
-                                                            reference_samples_path=None)
-if args.n!= 0 : savepath = f'{SAVEFOLDER}/{args.exp}'
+                                                           bridgestan_path=BRIDGESTAN, 
+                                                           model_directory=MODELDIR, 
+                                                           reference_samples_path=reference_path,
+                                                           run_nuts=run_nuts)
+if args.n == 0 : savepath = f'{SAVEFOLDER}/{args.exp}'
 else: savepath = f'{SAVEFOLDER}/{args.exp}-{D}/'
-
-
+comm.Barrier()
 ###################################
 # NUTS
+# Load samples if present. Run NUTS otherwise
 np.random.seed(args.seed)
 if wrank == 0:
     savefolder_nuts = f"{savepath}/nuts/target{args.target_accept:0.2f}/"
@@ -84,7 +97,7 @@ if wrank == 0:
         print("\nNow run NUTS on rank 0")
         savefolder_nuts = f"{savepath}/nuts/target{args.target_accept:0.2f}/"
         print(f"NUTS results will be saved in {savefolder_nuts}")
-        samples_nuts, sampler, step_size, n_leapfrogs_nuts = run_nuts(stanfile = files[0], 
+        samples_nuts, sampler, step_size, n_leapfrogs_nuts = nuts.run_nuts(stanfile = files[0], 
                                                                     datafile = files[1], 
                                                                     args = args, 
                                                                     savefolder=savefolder_nuts, 
@@ -109,9 +122,9 @@ comm.Barrier()
 folder = 'atlas-nuts'
 savefolder = f"{savepath}/{folder}/offset{args.offset:0.2f}/"
 if args.probabilistic !=0:
-    savefolder = f"{savefolder}"[:-1] + f"prob-{args.probabilistic}/"
+    savefolder = f"{savefolder}"[:-1] + f"-prob{args.probabilistic}/"
 if args.constant_trajectory !=0:
-    savefolder = f"{savefolder}"[:-1] + f"ctraj-{args.constant_trajectory}/"
+    savefolder = f"{savefolder}"[:-1] + f"-ctraj{args.constant_trajectory}/"
 if args.suffix != "":
     savefolder = f"{savefolder}"[:-1] + f"-{args.suffix}/"
     
@@ -126,7 +139,9 @@ kernel = Atlas(D, lp, lp_g,
                 probabilistic = args.probabilistic,
                 offset = args.offset,
                 min_nleapfrog = args.min_leapfrog,
-                max_nleapfrog = args.max_leapfrog)
+                max_nleapfrog = args.max_leapfrog,
+                low_nleap_percentile = args.low_nleap_percentile,
+                high_nleap_percentile = args.high_nleap_percentile)
 
 sampler = kernel.sample(q0, 
                         n_leapfrog = args.n_leapfrog, 
@@ -140,6 +155,7 @@ sampler = kernel.sample(q0,
 
 print(f"Acceptance for Atlas Sampler in chain {wrank} : ", np.unique(sampler.accepts, return_counts=True))
 
+# Save samples and gather on rank 0 for diagnostics
 sampler.save(path=f"{savefolder}", suffix=f"-{wrank}")
 samples_constrained = []
 for s in sampler.samples:
@@ -153,6 +169,7 @@ gradcounts = comm.gather(sampler.gradcounts, root=0)
 stepsizes = comm.gather(kernel.step_size, root=0)
 
 #####################
+# Diagnostics
 if wrank == 0:
     
     samples = np.stack(samples, axis=0)
