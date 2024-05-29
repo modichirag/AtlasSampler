@@ -303,11 +303,11 @@ class HMC_Uturn_Jitter(HMC_Uturn):
                       
         for i in range(n_burnin):  # Burnin
             n_leapfrog = self.nleapfrog_jitter_dist(step_size)
-            q, p, accepted, Hs = self.hmc_step(q, n_leapfrog=n_leapfrog, step_size=step_size) 
+            q, p, accepted, Hs = self.hmc_step(q, n_leapfrog=n_leapfrog, step_size=self.step_size) 
 
         for i in range(n_samples):  # Sample
             n_leapfrog = self.nleapfrog_jitter_dist(step_size)
-            q, p, accepted, Hs = self.hmc_step(q, n_leapfrog=n_leapfrog, step_size=step_size) 
+            q, p, accepted, Hs = self.hmc_step(q, n_leapfrog=n_leapfrog, step_size=self.step_size) 
             state.i += 1
             state.appends(q=q, accepted=accepted, Hs=Hs, gradcount=self.Vgcount, energycount=self.Hcount)
             if (i%(n_samples//10) == 0):

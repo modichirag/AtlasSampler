@@ -211,7 +211,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
         state.steplist = []
                
         if n_stepsize_adapt:
-            q = self.adapt_stepsize(q, n_stepsize_adapt, target_accept=target_accept) 
+            q = self.adapt_stepsize(q, n_stepsize_adapt, target_accept=target_accept)
 
         if n_leapfrog_adapt:  # Construct a distribution of trajectory lengths
             q = self.adapt_trajectory_length(q, n_leapfrog_adapt)
@@ -226,12 +226,12 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
                       
         for i in range(n_burnin):  # Burnin
             n_leapfrog = self.nleapfrog_jitter_dist(step_size)
-            q, p, accepted, Hs, steplist = self.step(q, n_leapfrog=n_leapfrog, step_size=step_size) 
+            q, p, accepted, Hs, steplist = self.step(q, n_leapfrog=n_leapfrog, step_size=self.step_size) 
 
         for i in range(n_samples):  # Sample
             state.i += 1
             n_leapfrog = self.nleapfrog_jitter_dist(step_size)
-            q, p, accepted, Hs, steplist = self.step(q, n_leapfrog=n_leapfrog, step_size=step_size) 
+            q, p, accepted, Hs, steplist = self.step(q, n_leapfrog=n_leapfrog, step_size=self.step_size) 
             state.appends(q=q, accepted=accepted, Hs=Hs, gradcount=self.Vgcount, energycount=self.Hcount)
             state.steplist.append(steplist)
             if (i%(n_samples//10) == 0):

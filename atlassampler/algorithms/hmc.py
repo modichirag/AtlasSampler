@@ -154,11 +154,13 @@ class HMC():
 
     
     def sample(self, q, p=None,
+               seed=99,
                n_samples=100, n_burnin=0, step_size=0.1, n_leapfrog=10,
                n_stepsize_adapt=0, target_accept=0.65, jitter_n_leapfrog=True, 
                verbose=False):
 
         state = Sampler()
+        np.random.seed(seed)
         self.step_size = step_size
         self.n_leapfrog = n_leapfrog
         self.verbose = verbose
