@@ -39,7 +39,7 @@ def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, 
     sampler = cmd_model.sample(data = datafile, 
                                 chains = args.n_chains,
                                 iter_sampling = args.n_samples,
-                                iter_warmup = args.n_burnin,
+                                iter_warmup = max(args.n_burnin, 1000),
                                 seed = args.seed,
                                 metric = args.metric,
                                 step_size = args.step_size,
@@ -71,6 +71,17 @@ def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, 
     else:
          return samples
 
+
+def load_results(folder, n_chains, n_samples):
+    samples_nuts = np.load(f"{folder}/samples.npy")
+    step_size = np.load(f"{folder}/stepsize.npy")
+    n_leapfrogs_nuts = np.load(f"{folder}/leapfrogs.npy")
+    assert samples_nuts.shape[0] >= n_chains
+    assert samples_nuts.shape[1] >= n_samples
+    samples_nuts = samples_nuts[:n_chains, :n_samples]
+    n_leapfrogs_nuts = n_leapfrogs_nuts[:n_chains, :n_samples]
+    step_size = step_size[:n_chains]
+    return samples_nuts, step_size, n_leapfrogs_nuts
         
 
 if __name__ == "__main__":
