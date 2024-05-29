@@ -161,8 +161,8 @@ class HMC_Uturn(HMC):
         if (n_leapfrog is not None) & (n_stepsize_adapt == 0):
             print("n_leapfrog argument is only used to adapt stepsize in U-turn sampler")
         # parse remaining kwargs
-        for key, val in kwargs.items():
-            setattr(self, key, val)
+        # for key, val in kwargs.items():
+        #     setattr(self, key, val)
         
         # additional quantities to keep track of
         state.stepcount = []
@@ -286,8 +286,8 @@ class HMC_Uturn_Jitter(HMC_Uturn):
         self.n_leapfrog = n_leapfrog
         self.verbose = verbose
         # parse remaining kwargs
-        for key, val in kwargs.items():
-            setattr(self, key, val)
+        # for key, val in kwargs.items():
+        #     setattr(self, key, val)
                
         if n_stepsize_adapt:
             q = self.adapt_stepsize(q, n_stepsize_adapt, target_accept=target_accept) 
