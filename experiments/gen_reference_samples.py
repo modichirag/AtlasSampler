@@ -1,5 +1,5 @@
 import numpy as np
-from atlassampler import util
+0;95;0cfrom atlassampler import util
 import nuts
 
 class ReferenceSamples():
@@ -98,7 +98,7 @@ class ReferenceSamples():
         self.exp = exp
         self.chain_index = chain_index
         if exp in self.analytic_models:
-            self.n_samples = 100000
+            self.n_samples = 1000000
             return self.gen_analytic_samples()
         else:
             if run_nuts:

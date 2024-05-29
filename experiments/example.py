@@ -17,7 +17,7 @@ wsize = comm.Get_size()
 print('My rank is ',wrank)
 
 # Set some paths
-# SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
+#SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
 SAVEFOLDER = './tmp/'
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 MODELDIR = '../'
@@ -32,8 +32,8 @@ parser.add_argument('--seed', type=int, default=999, help='seed')
 parser.add_argument('--n_leapfrog', type=int, default=20, help='number of leapfrog steps')
 parser.add_argument('--n_samples', type=int, default=1001, help='number of samples')
 parser.add_argument('--n_burnin', type=int, default=0, help='number of iterations for burn-in')
-parser.add_argument('--n_stepsize_adapt', type=int, default=200, help='number of iterations for step size adaptation')
-parser.add_argument('--n_leapfrog_adapt', type=int, default=200, help='number of iterations for trajectory length adaptation')
+parser.add_argument('--n_stepsize_adapt', type=int, default=100, help='number of iterations for step size adaptation')
+parser.add_argument('--n_leapfrog_adapt', type=int, default=100, help='number of iterations for trajectory length adaptation')
 parser.add_argument('--target_accept', type=float, default=0.80, help='target acceptance')
 parser.add_argument('--step_size', type=float, default=0.1, help='initial step size')
 parser.add_argument('--offset', type=float, default=1.0, help='offset for uturn sampler')
@@ -46,10 +46,11 @@ parser.add_argument('--max_leapfrog', type=int, default=1024, help='maximum numb
 args = parser.parse_args()
 print("Model name : ", args.exp)
 model, D, lp, lp_g, ref_samples, files = models.stan_model(args.exp, args.n, 
-                                                            bridgestan_path=BRIDGESTAN, 
-                                                            model_directory=MODELDIR, 
-                                                            reference_samples_path=None)
-if args.n!= 0 : savepath = f'{SAVEFOLDER}/{args.exp}'
+                                                           bridgestan_path=BRIDGESTAN, 
+                                                           model_directory=MODELDIR, 
+                                                           reference_samples_path=None,
+                                                           run_nuts=False)
+if args.n == 0 : savepath = f'{SAVEFOLDER}/{args.exp}'
 else: savepath = f'{SAVEFOLDER}/{args.exp}-{D}/'
 
 if ref_samples is not None:

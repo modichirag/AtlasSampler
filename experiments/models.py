@@ -44,7 +44,7 @@ def stan_model(exp, D=0,
             else : raise FileNotFoundError
     bsmodel = bs.StanModel.from_stan_file(stanfile, datafile)
 
-    D = bsmodel.param_num()
+    D = bsmodel.param_unc_num()
     lp = lambda x: bsmodel.log_density(x)
     lp_g = lambda x: bsmodel.log_density_gradient(x)[1]
 
