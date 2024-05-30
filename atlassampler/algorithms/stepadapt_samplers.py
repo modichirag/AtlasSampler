@@ -101,13 +101,14 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
         if est_hessian:
             print(f"step size reduced to {step_size} from {self.step_size}")
             print("Exceeded max attempts to estimate Hessian")
-            raise
+            raise RecursionError
 
         else:
             eigv = power_iteration(h_est + np.eye(self.D)*1e-6)[0]
             if eigv < 0:
                 print("negative eigenvalue : ", eigv)
-                raise
+                raise ArithmeticError
+            
             eps_mean = min(0.5*step_size, 0.5*np.sqrt(1/ eigv))
             epsf = setup_stepsize_distribution(epsmean = eps_mean, 
                                                epsmax = step_size, 
