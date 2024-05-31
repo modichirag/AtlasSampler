@@ -3,16 +3,16 @@ from scipy.stats import beta
 from scipy.stats import norm
 
 
-def setup_stepsize_distribution(epsmean, epsmax, epsmin, distribution='beta'):
+def setup_stepsize_distribution(epsmean, epsmax, epsmin, distribution='beta', stepsize_sigma=2.):
     if distribution == 'beta':
         return beta_dist(epsmean, epsmax, epsmin)
     if distribution == 'lognormal':
-        return Lognormal_distribution(epsmean)
+        return Lognormal_distribution(epsmean, sigma=stepsize_sigma)
     else:
         raise NotImplementedError
 
     
-def beta_dist(epsmean, epsmax, epsmin):
+def beta_dist(epsmean, epsmax, epsmin, **kwargs):
     """Return a beta distribution with mode=eps_mean/2."""
     scale = epsmax-epsmin
     eps_scaled = epsmean/epsmax
@@ -25,12 +25,13 @@ def beta_dist(epsmean, epsmax, epsmin):
 
 class Lognormal_distribution():
     
-    def __init__(self, epsmean, sigma=np.log(2)):
-        self.epsmean = epsmean
-        self.offset = sigma**2/2
-        self.mu = np.log(self.epsmean) - self.offset
+    def __init__(self, mu, sigma):
+        self.mu = mu
         self.sigma = sigma
-        self.normal_dist = norm(loc=self.mu,  scale=self.sigma)
+        self.logsigma = np.log(sigma)
+        self.offset = self.logsigma**2/2
+        self.logmu = np.log(self.mu) - self.offset
+        self.normal_dist = norm(loc=self.logmu,  scale=self.logsigma)
         
     def rvs(self, size):
         y = self.normal_dist.rvs(size)
