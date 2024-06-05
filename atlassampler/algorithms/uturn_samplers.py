@@ -5,11 +5,11 @@ from scipy.stats import multivariate_normal, uniform
 from .hmc import HMC
 from ..util import Sampler, DualAveragingStepSize, PrintException
 
-# Setup MPI environment
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-wrank = comm.Get_rank()
-wsize = comm.Get_size()
+# # Setup MPI environment
+# from mpi4py import MPI
+# comm = MPI.COMM_WORLD
+# wrank = comm.Get_rank()
+# wsize = comm.Get_size()
 
 
 __all__ = ["HMC_Uturn", "HMC_Uturn_Jitter"]
@@ -178,7 +178,7 @@ class HMC_Uturn(HMC):
             q, p, accepted, Hs, stepcount, mh_factor = self.step(q, self.step_size)
             state.i += 1
             if (i%(n_samples//10) == 0):
-                print(f"In rank {wrank}: iteration {i} of {n_samples}")
+                print(f"Iteration {i} of {n_samples}")
             state.appends(q=q, accepted=accepted, Hs=Hs, gradcount=self.Vgcount, energycount=self.Hcount)
             state.stepcount.append(stepcount)
             state.mh_factor.append(mh_factor)
@@ -262,23 +262,28 @@ class HMC_Uturn_Jitter(HMC_Uturn):
             lambda step_size : min(max(int(np.random.choice(self.trajectories, 1) / step_size), self.min_nleapfrog), self.max_nleapfrog)
 
 
-    def combine_trajectories_from_chains(self):
-        all_traj_array = np.zeros(len(self.traj_array) * wsize)
-        all_traj_array_tmp = comm.gather(self.traj_array, root=0)
-        if wrank == 0 :
-            all_traj_array = np.concatenate(all_traj_array_tmp)
-        comm.Bcast(all_traj_array, root=0)
-        self.traj_array = all_traj_array*1.
+    def combine_trajectories_from_chains(self, comm):
+        if comm is not None:
+            comm.Barrier()
+            all_traj_array = np.zeros(len(self.traj_array) * comm.size)
+            all_traj_array_tmp = comm.gather(self.traj_array, root=0)
+            if comm.rank == 0 :
+                all_traj_array = np.concatenate(all_traj_array_tmp)
+            comm.Bcast(all_traj_array, root=0)
+            self.traj_array = all_traj_array*1.
+            comm.Barrier()            
+        else:
+            self.traj_array = np.array(self.traj_array)
         self.traj_array = self.traj_array[ self.traj_array!=0]
 
-
     def sample(self, q, p=None,
-            n_samples=100, n_burnin=0, step_size=0.1, n_leapfrog=10,
-            n_stepsize_adapt=0, n_leapfrog_adapt=100,
-            target_accept=0.65, 
-            seed=99,
+               n_samples=100, n_burnin=0, step_size=0.1, n_leapfrog=10,
+               n_stepsize_adapt=0, n_leapfrog_adapt=100,
+               target_accept=0.65, 
+               seed=99,
+               comm=None,
                verbose=False, **kwargs):
-    
+        
         state = Sampler()
         np.random.seed(seed)
         self.rng = np.random.default_rng(seed)
@@ -295,10 +300,10 @@ class HMC_Uturn_Jitter(HMC_Uturn):
         if n_leapfrog_adapt:  # Construct a distribution of trajectory lengths
             q = self.adapt_trajectory_length(q, n_leapfrog_adapt)
             comm.Barrier()
-            self.combine_trajectories_from_chains()
+            self.combine_trajectories_from_chains(comm)
             state.trajectories = self.traj_array
             comm.Barrier()
-            print(f"Shape of trajectories after bcast  in rank {wrank} : ", self.traj_array.shape)
+            print(f"Shape of trajectories : ", self.traj_array.shape)
             self.nleapfrog_jitter()
                       
         for i in range(n_burnin):  # Burnin
@@ -311,7 +316,7 @@ class HMC_Uturn_Jitter(HMC_Uturn):
             state.i += 1
             state.appends(q=q, accepted=accepted, Hs=Hs, gradcount=self.Vgcount, energycount=self.Hcount)
             if (i%(n_samples//10) == 0):
-                print(f"In rank {wrank}: iteration {i} of {n_samples}")
+                print(f"Iteration {i} of {n_samples}")
 
         state.to_array()
         return state

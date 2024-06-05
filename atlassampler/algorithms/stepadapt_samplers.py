@@ -8,10 +8,10 @@ from ..hessians import Hessian_approx
 from ..distributions import setup_stepsize_distribution
 
 # Setup MPI environment
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-wrank = comm.Get_rank()
-wsize = comm.Get_size()
+# from mpi4py import MPI
+# comm = MPI.COMM_WORLD
+# wrank = comm.Get_rank()
+# wsize = comm.Get_size()
 
 
 class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
@@ -44,6 +44,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
                  constant_trajectory=False,
                  hessian_mode='bfgs',
                  stepsize_distribution='beta',
+                 stepsize_sigma=2.,
                  **kwargs):
         super(DRHMC_AdaptiveStepsize, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob,
                                                      mass_matrix=mass_matrix, **kwargs)        
@@ -53,7 +54,8 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
         self.constant_trajectory = constant_trajectory
         self.hessian_mode = hessian_mode
         self.stepsize_distribution = stepsize_distribution
-
+        self.stepsize_sigma = stepsize_sigma
+        
     def get_stepsize_distribution(self, q0, p0, qlist, glist, step_size):
         """
         Construct a distribution for stepsize at the current point (q0, p0).
@@ -113,7 +115,8 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
             epsf = setup_stepsize_distribution(epsmean = eps_mean, 
                                                epsmax = step_size, 
                                                epsmin = step_size/self.max_stepsize_reduction, 
-                                               distribution = self.stepsize_distribution)
+                                               distribution = self.stepsize_distribution,
+                                               stepsize_sigma = self.stepsize_sigma)
             return eps_mean, epsf
         
         
@@ -168,8 +171,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
             accepted = -99
             Hs, steplist = [0, 0],[0, 0, 0]
             return qf, pf, accepted, Hs, steplist
-            
-
+        
         
     def step(self, q, n_leapfrog, step_size=None):
 
@@ -195,11 +197,12 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
 
 
     def sample(self, q, p=None,
-            n_samples=100, n_burnin=0, step_size=0.1, n_leapfrog=10,
-            n_stepsize_adapt=0, n_leapfrog_adapt=100,
-            target_accept=0.65, 
-            seed=99,
-            verbose=False):
+               n_samples=100, n_burnin=0, step_size=0.1, n_leapfrog=10,
+               n_stepsize_adapt=0, n_leapfrog_adapt=100,
+               target_accept=0.65, 
+               seed=99,
+               comm=None,
+               verbose=False):
     
         state = Sampler()
         np.random.seed(seed)
@@ -216,11 +219,9 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
 
         if n_leapfrog_adapt:  # Construct a distribution of trajectory lengths
             q = self.adapt_trajectory_length(q, n_leapfrog_adapt)
-            comm.Barrier()
-            self.combine_trajectories_from_chains()
+            self.combine_trajectories_from_chains(comm)
             state.trajectories = self.traj_array
-            comm.Barrier()
-            print(f"Shape of trajectories after bcast  in rank {wrank} : ", self.traj_array.shape)
+            print(f"Shape of trajectories after bcast : ", self.traj_array.shape)
             self.nleapfrog_jitter()
         else:
             self.nleapfrog_jitter_dist = lambda x:  self.n_leapfrog
@@ -236,7 +237,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
             state.appends(q=q, accepted=accepted, Hs=Hs, gradcount=self.Vgcount, energycount=self.Hcount)
             state.steplist.append(steplist)
             if (i%(n_samples//10) == 0):
-                print(f"In rank {wrank}: iteration {i} of {n_samples}")
+                print(f"Iteration {i} of {n_samples}")
 
         state.to_array()
         return state

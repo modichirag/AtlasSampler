@@ -22,7 +22,7 @@ class Atlas_Uturn(DRHMC_AdaptiveStepsize):
                  constant_trajectory=0,
                  probabilistic=0,
                  low_nleap_percentile=10, 
-                 high_nleap_percentile=50, 
+                 high_nleap_percentile=90, 
                  **kwargs):
         """Initialize an instance of Atlas.
         
@@ -66,8 +66,8 @@ class Atlas_Uturn(DRHMC_AdaptiveStepsize):
             print("min nleapfrog should at least be 2 for delayed proposals")
             raise
         self.probabilistic = probabilistic
-        self.constant_trajectory=constant_trajectory
-        self.offset_delayed=offset_delayed
+        self.constant_trajectory = constant_trajectory
+        self.offset_delayed = offset_delayed
         
     def preliminary_step(self, q, p, step_size, offset, n_leapfrog=None):
         """
@@ -302,32 +302,24 @@ class Atlas_Uturn(DRHMC_AdaptiveStepsize):
         state.to_array()
         return state
 
-
-
-
-
+    
+######################
 class Atlas_HMC(DRHMC_AdaptiveStepsize):
     """Atlas is "Adaptive Trajectory Length And Stepsize" sampler. 
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
-                 offset=None, 
-                 constant_trajectory=0,
-                 probabilistic=0,
-                 low_nleap_percentile=10, 
-                 high_nleap_percentile=50, 
+                 offset=None,
+                 stepinit_factor=1.,
                  **kwargs):
         """Initialize an instance of Atlas.
         """
         super(Atlas_HMC, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                     mass_matrix=mass_matrix, offset=offset,
-                                    low_nleap_percentile=low_nleap_percentile,
-                                    high_nleap_percentile=high_nleap_percentile, 
                                     **kwargs)
         if self.min_nleapfrog <= 2:
             print("min nleapfrog should at least be 2 for delayed proposals")
             raise
-        self.probabilistic = probabilistic
-        self.constant_trajectory=constant_trajectory
+        self.stepinit_factor = stepinit_factor
 
         
     def preliminary_step(self, q, p, step_size, offset, n_leapfrog=None):
@@ -380,7 +372,7 @@ class Atlas_HMC(DRHMC_AdaptiveStepsize):
         
         p =  multivariate_normal.rvs(mean=np.zeros(self.D), cov=self.inv_mass_matrix, size=1)
         try:
-            eps1, epsf1 = self.get_stepsize_distribution(q, p, [q], [q], self.step_size)
+            eps1, epsf1 = self.get_stepsize_distribution(q, p, [q], [q], self.step_size*self.stepinit_factor)
         except:
             PrintException()
             return q, p, -1, [0, 0]
@@ -393,7 +385,7 @@ class Atlas_HMC(DRHMC_AdaptiveStepsize):
         qlist, plist, glist = qpg_list
         
         try:
-            eps2, epsf2 = self.get_stepsize_distribution(q1, -p1, [q1], [q1], self.step_size)
+            eps2, epsf2 = self.get_stepsize_distribution(q1, -p1, [q1], [q1], self.step_size*self.stepinit_factor)
         except:
             PrintException()
             return q, p, -1, [0, 0]
