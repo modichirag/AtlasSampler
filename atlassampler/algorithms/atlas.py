@@ -56,8 +56,9 @@ class Atlas(DRHMC_AdaptiveStepsize):
                  offset=None, 
                  constant_trajectory=0,
                  probabilistic=0,
+                 delayed_proposals=1,
                  low_nleap_percentile=10, 
-                 high_nleap_percentile=50, 
+                 high_nleap_percentile=90, 
                  **kwargs):
         """Initialize an instance of Atlas.
         
@@ -101,6 +102,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
             print("min nleapfrog should at least be 2 for delayed proposals")
             raise
         self.probabilistic = probabilistic
+        self.delayed_proposals = delayed_proposals
         self.constant_trajectory=constant_trajectory
 
         
@@ -280,17 +282,21 @@ class Atlas(DRHMC_AdaptiveStepsize):
         else:
             u =  np.random.uniform(0., 1., size=1)
             if  np.log(u) > min(0., log_prob_accept):
-                if self.probabilistic == 1:
-                    if log_prob_N == -np.inf:
-                        return q, p, -1, Hs
+                if self.delayed_proposals:
+                    if self.probabilistic == 1:
+                        if log_prob_N == -np.inf:
+                            return q, p, -1, Hs
+                        else:
+                            return self.delayed_step(q, p, qlist, glist,
+                                                    step_size=step_size, offset=offset, n_leapfrog=n_leapfrog,
+                                                    log_prob_accept_first=log_prob_accept)
                     else:
-                        return self.delayed_step(q, p, qlist, glist,
+                        return self.delayed_step(q, p, qlist, glist, 
                                                 step_size=step_size, offset=offset, n_leapfrog=n_leapfrog,
                                                 log_prob_accept_first=log_prob_accept)
                 else:
-                    return self.delayed_step(q, p, qlist, glist, 
-                                            step_size=step_size, offset=offset, n_leapfrog=n_leapfrog,
-                                            log_prob_accept_first=log_prob_accept)
+                    return q, p, -1, Hs
+
             else:
                 qf, pf = q1, p1
                 accepted = 1
@@ -302,6 +308,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
                n_stepsize_adapt=0, n_leapfrog_adapt=100,
                target_accept=0.65, 
                seed=99,
+               comm=None,
                verbose=False):
     
         state = Sampler()
@@ -316,11 +323,11 @@ class Atlas(DRHMC_AdaptiveStepsize):
 
         if n_leapfrog_adapt:  # Construct a distribution of trajectory lengths
             q = self.adapt_trajectory_length(q, n_leapfrog_adapt)
-            comm.Barrier()
-            self.combine_trajectories_from_chains()
+            #comm.Barrier()
+            self.combine_trajectories_from_chains(comm)
             state.trajectories = self.traj_array
-            comm.Barrier()
-            print(f"Shape of trajectories after bcast in rank {wrank} : ", self.traj_array.shape)
+            #comm.Barrier()
+            print(f"Shape of trajectories : ", self.traj_array.shape)
             self.nleapfrog_jitter()
         else:
             self.nleapfrog_jitter_dist = lambda x:  self.n_leapfrog
@@ -333,7 +340,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
             q, p, accepted, Hs = self.step(q) 
             state.appends(q=q, accepted=accepted, Hs=Hs, gradcount=self.Vgcount, energycount=self.Hcount)
             if (i%(n_samples//10) == 0):
-                print(f"In rank {wrank}: iteration {i} of {n_samples}")
+                print(f"Iteration {i} of {n_samples}")
 
         state.to_array()
         return state
