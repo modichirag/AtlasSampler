@@ -65,14 +65,12 @@ class HMC():
         self.Vgcount += 1
         v_g = self.grad_log_prob(x)
         return v_g *-1.
-
     
     def H(self, q, p, M=None):
         self.Hcount += 1
         Vq = self.V(q)
         Kq = self.KE(p)
         return Vq + Kq
-        
 
     def leapfrog(self, q, p, N, step_size, M=None, g=None):        
         self.leapcount += 1        
@@ -109,30 +107,40 @@ class HMC():
     def accept_log_prob(self, qp0, qp1, return_H=False):
         '''Evaluate the Hamiltonian and acceptance log_prob
         '''
-        q0, p0 = qp0
-        q1, p1 = qp1
-        H0 = self.H(q0, p0)
-        H1 = self.H(q1, p1)
-        log_prob = H0 - H1
-        if np.isnan(log_prob)  or (q0-q1).sum()==0:
-            log_prob = -np.inf
-        log_prob = min(0., log_prob)
-        if return_H is False: return log_prob
-        else: return log_prob, H0, H1
-    
+        try:
+            q0, p0 = qp0
+            q1, p1 = qp1
+            H0 = self.H(q0, p0)
+            H1 = self.H(q1, p1)
+            log_prob = H0 - H1
+            if np.isnan(log_prob)  or (q0-q1).sum()==0:
+                log_prob = -np.inf
+            log_prob = min(0., log_prob)
+            if return_H is False: return log_prob
+            else: return log_prob, H0, H1
+        except Exception as e:
+            PrintException()
+            log_prob, H0, H1 = np.NaN, np.NaN, np.NaN
+            if return_H is False: return log_prob
+            else: return log_prob, H0, H1
+            
 
     def metropolis(self, qp0, qp1, M=None):
         '''Accept/reject the sample based on Metropolis criterion
         '''
-        log_prob, H0, H1 = self.accept_log_prob(qp0, qp1, return_H=True)
-        q0, p0 = qp0
-        q1, p1 = qp1
-        u =  np.random.uniform(0., 1., size=1)
-        if  np.log(u) > min(0., log_prob):
-            return q0, p0, -1., [H0, H1]
-        else:
-            return q1, p1, 1., [H0, H1]
-        
+        try:
+            log_prob, H0, H1 = self.accept_log_prob(qp0, qp1, return_H=True)
+            q0, p0 = qp0
+            q1, p1 = qp1
+            u =  np.random.uniform(0., 1., size=1)
+            if  np.log(u) > min(0., log_prob):
+                return q0, p0, -1., [H0, H1]
+            else:
+                return q1, p1, 1., [H0, H1]
+        except Exception as e:
+            PrintException()
+            q0, p0 = qp0
+            return q0, p0, -1, [np.NaN, np.NaN]
 
     # Quality of life function to inherit for standard stepping
     def hmc_step(self, q, n_leapfrog=None, step_size=None): 

@@ -210,6 +210,7 @@ class HMC_Uturn_Jitter(HMC_Uturn):
     
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, offset=0.5, 
                  low_nleap_percentile=10, high_nleap_percentile=90, nleap_factor=1.,
+                 nleap_distribution='empirical',
                  **kwargs):
         super(HMC_Uturn_Jitter, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                             mass_matrix=mass_matrix, offset=offset,
@@ -217,6 +218,7 @@ class HMC_Uturn_Jitter(HMC_Uturn):
         self.low_nleap_percentile = low_nleap_percentile
         self.high_nleap_percentile = high_nleap_percentile
         self.nleap_factor = nleap_factor
+        self.nleap_distribution = nleap_distribution
 
 
     def adapt_trajectory_length(self, q, n_leapfrog_adapt):
@@ -258,9 +260,16 @@ class HMC_Uturn_Jitter(HMC_Uturn):
                 print("Set of viable trajectories are empty")
                 raise
 
-        self.nleapfrog_jitter_dist = \
-            lambda step_size : min(max(int(np.random.choice(self.trajectories, 1) / step_size), self.min_nleapfrog), self.max_nleapfrog)
-
+        if self.nleap_distribution == 'empirical':
+            self.nleapfrog_jitter_dist = \
+                lambda step_size : min(max(int(np.random.choice(self.trajectories, 1) / step_size), self.min_nleapfrog), self.max_nleapfrog)
+        elif self.nleap_distribution == 'uniform':
+            self.nleapfrog_jitter_dist = \
+                lambda step_size : min(max(int(np.random.uniform(self.trajectories.min(), self.trajectories.max()) / step_size), self.min_nleapfrog), self.max_nleapfrog)
+        elif self.nleap_distribution == 'constant':
+            self.nleapfrog_jitter_dist = \
+                lambda step_size : self.n_leapfrog
+            
 
     def combine_trajectories_from_chains(self, comm):
         if comm is not None:
