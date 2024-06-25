@@ -33,7 +33,7 @@ def add_default_args(parser):
     parser.add_argument('--hessian_mode', type=str, default='bfgs', help='method to approximate hessian')
     parser.add_argument('--stepsize_distribution', type=str, default='beta', help='distribution for stepsize')
     parser.add_argument('--stepsize_sigma', type=float, default=2., help='width of lognormal distribution')
-    parser.add_argument('--max_stepsize_reduction', type=float, default=500., help='maximum reduction in stepsize')
+    parser.add_argument('--max_stepsize_reduction', type=float, default=1000., help='maximum reduction in stepsize')
 
     # Argument parsed by Atlas
     parser.add_argument('--delayed_proposals', type=int, default=1, help='make delayed proposal when stepsize is okay')

@@ -92,7 +92,7 @@ if __name__ == "__main__":
     parentfolder = '/mnt/ceph/users/cmodi/atlassampler/'
     print("Model name : ", experiment)
     model, D, lp, lp_g, ref_samples, files = models.stan_model(experiment, n)
-    if n!= 0 : savefolder = f'{parentfolder}/{experiment}/nuts/target{args.target_accept:0.2f}/'
+    if n == 0 : savefolder = f'{parentfolder}/{experiment}/nuts/target{args.target_accept:0.2f}/'
     else: savefolder = f'{parentfolder}/{experiment}-{D}/nuts/target{args.target_accept:0.2f}/'
 
     stanfile, datafile = files
