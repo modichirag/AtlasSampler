@@ -1,5 +1,5 @@
 import numpy as np
-0;95;0cfrom atlassampler import util
+from atlassampler import util
 import nuts
 
 class ReferenceSamples():
@@ -19,7 +19,8 @@ class ReferenceSamples():
                  seed=123,
                  savefolder=None):
 
-        self.analytic_models = ['normal', 'funnel', 'rosenbrock', 'multifunnel']
+        self.analytic_models = ['normal', 'funnel', 'rosenbrock', 'multifunnel',
+                                'corr_normal90', 'corr_normal95']
         self.model_directory = model_directory
         self.stanfile = stanfile
         self.datafile = datafile
@@ -40,6 +41,11 @@ class ReferenceSamples():
             ref_samples = np.random.normal(0, 1, self.n_samples*self.D).reshape(self.n_samples, self.D)
             if self.chain_index: ref_samples = np.expand_dims(ref_samples, axis=0)
 
+        if self.exp == 'ill_normal':
+            m = np.linspace(1, self.D, self.D)/self.D**0.5
+            ref_samples = np.array([np.random.normal(0, m) for _ in range(self.n_samples)])
+            if self.chain_index: ref_samples = np.expand_dims(ref_samples, axis=0)
+
         if self.exp == 'funnel':
             log_scale = np.random.normal(0, 3, self.n_samples)
             latents = np.array([np.random.normal(0, np.exp(log_scale/2)) for _ in range(self.D-1)]).T
@@ -52,6 +58,16 @@ class ReferenceSamples():
             y = np.array([np.random.normal(x**2, 0.1) for _ in range(self.D-1)]).T
             x = np.expand_dims(x, axis=1)
             ref_samples = np.concatenate([x, y], axis=1)
+            if self.chain_index: ref_samples = np.expand_dims(ref_samples, axis=0)
+
+        if 'corr_normal' in self.exp:
+            r = float(self.exp.split('corr_normal')[1])/100
+            D = self.D
+            m = np.zeros((D, D))
+            for i in range(D):
+                for j in range(D):
+                    m[i, j] = r**abs(i-j)
+            ref_samples = np.random.multivariate_normal(np.zeros(D), m, self.n_samples)
             if self.chain_index: ref_samples = np.expand_dims(ref_samples, axis=0)
 
         if self.exp == 'multifunnel':
