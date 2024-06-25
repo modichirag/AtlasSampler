@@ -40,7 +40,7 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
                  n_hessian_samples=10, n_hessian_attempts=10, 
-                 max_stepsize_reduction=500,
+                 max_stepsize_reduction=1000,
                  constant_trajectory=False,
                  hessian_mode='bfgs',
                  stepsize_distribution='beta',
@@ -103,21 +103,25 @@ class DRHMC_AdaptiveStepsize(HMC_Uturn_Jitter):
         if est_hessian:
             print(f"step size reduced to {step_size} from {self.step_size}")
             print("Exceeded max attempts to estimate Hessian")
-            raise RecursionError
-
+            eps_mean = 4 * step_size/self.max_stepsize_reduction
+            # raise RecursionError
         else:
             eigv = power_iteration(h_est + np.eye(self.D)*1e-6)[0]
             if eigv < 0:
                 print("negative eigenvalue : ", eigv)
-                raise ArithmeticError
-            
-            eps_mean = min(0.5*step_size, 0.5*np.sqrt(1/ eigv))
-            epsf = setup_stepsize_distribution(epsmean = eps_mean, 
-                                               epsmax = step_size, 
-                                               epsmin = step_size/self.max_stepsize_reduction, 
-                                               distribution = self.stepsize_distribution,
-                                               stepsize_sigma = self.stepsize_sigma)
-            return eps_mean, epsf
+                eps_mean = 4 * step_size/self.max_stepsize_reduction
+                # raise ArithmeticError            
+            else: 
+                eps_mean = min(0.5*step_size, 0.5*np.sqrt(1/ eigv))
+                
+        if eps_mean < step_size/self.max_stepsize_reduction:
+            eps_mean = 4 * step_size/self.max_stepsize_reduction
+        epsf = setup_stepsize_distribution(epsmean = eps_mean, 
+                                            epsmax = step_size, 
+                                            epsmin = step_size/self.max_stepsize_reduction, 
+                                            distribution = self.stepsize_distribution,
+                                            stepsize_sigma = self.stepsize_sigma)
+        return eps_mean, epsf
         
         
 
