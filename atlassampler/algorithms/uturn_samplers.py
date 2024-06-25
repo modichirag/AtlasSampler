@@ -65,7 +65,7 @@ class HMC_Uturn(HMC):
             q_next, p_next, qlist, glist = self.leapfrog(q_next, p_next, 1, step_size, g=g_next)
             g_next = glist[-1]
             log_joint_next = self.H(q_next, p_next)
-            if np.abs(log_joint_qp - log_joint_next) > 20.0:
+            if np.abs(log_joint_qp - log_joint_next) > 10:
                 success = False
                 break
             distance = np.sum((q_next - q) ** 2)
@@ -230,7 +230,12 @@ class HMC_Uturn_Jitter(HMC_Uturn):
 
         for i in range(n_leapfrog_adapt):            
             p =  multivariate_normal.rvs(mean=np.zeros(self.D), cov=self.inv_mass_matrix, size=1)
-            N, qlist, plist, glist, success = self.nuts_criterion(q, p, step_size)
+            step_size = self.step_size
+            success = 0 
+            for i in range(10): #sometimes the stepsize is too large
+                N, qlist, plist, glist, success = self.nuts_criterion(q, p, step_size)
+                if success: break
+                step_size = step_size * 0.5
             if success:
                 self.traj_array.append(N * step_size)
                 q = qlist[-1]
