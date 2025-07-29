@@ -24,7 +24,7 @@ def write_tmpdata(D, datapath):
 
 
 ##### Setup the models
-def stan_model(exp, D=0, 
+def stan_model(exp, n=0, 
                bridgestan_path=BRIDGESTAN, 
                model_directory=MODELDIR, 
                reference_samples_path=None, 
@@ -32,9 +32,9 @@ def stan_model(exp, D=0,
     
     bs.set_bridgestan_path(bridgestan_path)
     stanfile = f"{model_directory}/stan/{exp}.stan" 
-    if D != 0:
+    if n != 0:
         print(f"{model_directory}/stan/{exp}.data.json")
-        datafile = write_tmpdata(D, f"{model_directory}/stan/{exp}.data.json")
+        datafile = write_tmpdata(n, f"{model_directory}/stan/{exp}.data.json")
     else:
         datafile = f"{model_directory}/stan/{exp}.data.json"
         if os.path.isfile(datafile): pass
@@ -49,8 +49,13 @@ def stan_model(exp, D=0,
     lp_g = lambda x: bsmodel.log_density_gradient(x)[1]
 
     # load reference samples. Run NUTS if not found.
+    if n == 0 : reference_samples_path =  f'{reference_samples_path}/{exp}/'
+    else: reference_samples_path =  f'{reference_samples_path}/{exp}-{D}/'
     try:
         ref_samples = np.load(reference_samples_path + '/samples.npy')
+        if len(ref_samples.shape) == 2:
+            ref_samples = np.expand_dims(ref_samples, axis=0)
+
     except Exception as e:
         print("Exception in loading reference samples: ", e)
         try:

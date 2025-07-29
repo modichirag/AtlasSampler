@@ -18,12 +18,14 @@ parser.add_argument('-n', type=int, default=0, help='dimensionality or model num
 parser.add_argument('--seed', type=int, default=0, help='seed')
 parser.add_argument('--n_chains', type=int, default=16, help='number of chains')
 parser.add_argument('--n_samples', type=int, default=100, help='number of samples')
-parser.add_argument('--n_burnin', type=int, default=100, help='number of burnin/warmup iterations')
+parser.add_argument('--n_burnin', type=int, default=1000, help='number of burnin/warmup iterations')
 parser.add_argument('--n_stepsize_adapt', type=int, default=100, help='number of iterations for step size adaptation')
 parser.add_argument('--n_metric_adapt', type=int, default=0, help='number of iterations for metric adaptation')
+parser.add_argument('--max_treedepth', type=int, default=10, help='number of iterations for metric adaptation')
 parser.add_argument('--target_accept', type=float, default=0.80, help='target acceptance rate')
 parser.add_argument('--step_size', type=float, default=0.1, help='initial step size')
 parser.add_argument('--metric', type=str, default='unit_e', help='metric for NUTS')
+parser.add_argument('--suffix', type=str, default='', help='suffix for folder name')
 
 
 # NUTS
@@ -35,23 +37,25 @@ def run_nuts(stanfile, datafile, args, seed=999, savefolder=None, verbose=True, 
     if savefolder is not None:
         os.makedirs(savefolder, exist_ok=True)
 
+    
     cmd_model = csp.CmdStanModel(stan_file = stanfile)
     sampler = cmd_model.sample(data = datafile, 
-                                chains = args.n_chains,
-                                iter_sampling = args.n_samples,
-                                iter_warmup = max(args.n_burnin, 1000),
-                                seed = args.seed,
-                                metric = args.metric,
-                                step_size = args.step_size,
-                                adapt_delta = args.target_accept,
-                                ## cmdstanpy bug? does not adapt if specified
-                                #adapt_engaged = True,
-                                #adapt_metric_window = args.n_metric_adapt, 
-                                #adapt_init_phase = args.n_stepsize_adapt,
-                                #adapt_step_size = args.n_stepsize_adapt,
-                                show_console = False,
-                                show_progress = verbose,
-                                save_warmup = False)
+                               chains = args.n_chains,
+                               iter_sampling = args.n_samples,
+                               iter_warmup = args.n_burnin,
+                               seed = args.seed,
+                               max_treedepth=args.max_treedepth,
+                               metric = args.metric,
+                               step_size = args.step_size,
+                               adapt_delta = args.target_accept,
+                               ## cmdstanpy bug? does not adapt if specified
+                               #adapt_engaged = True,
+                               #adapt_metric_window = args.n_metric_adapt, 
+                               #adapt_init_phase = args.n_stepsize_adapt,
+                               #adapt_step_size = args.n_stepsize_adapt,
+                               show_console = False,
+                               show_progress = verbose,
+                               save_warmup = False)
 
     draws_pd = sampler.draws_pd()
     step_size = sampler.step_size
@@ -91,10 +95,12 @@ if __name__ == "__main__":
     n = args.n
     parentfolder = '/mnt/ceph/users/cmodi/atlassampler/'
     print("Model name : ", experiment)
-    model, D, lp, lp_g, ref_samples, files = models.stan_model(experiment, n)
+    model, D, lp, lp_g, ref_samples, files = models.stan_model(experiment, n, run_nuts=False)
     if n == 0 : savefolder = f'{parentfolder}/{experiment}/nuts/target{args.target_accept:0.2f}/'
     else: savefolder = f'{parentfolder}/{experiment}-{D}/nuts/target{args.target_accept:0.2f}/'
-
+    if args.metric == 'diag_e' : savefolder = savefolder[:-1] + f'-diag/'
+    if args.suffix != '': savefolder = savefolder[:-1] + f'-{args.suffix}'
+    
     stanfile, datafile = files
     samples = run_nuts(stanfile, datafile, args, seed=args.seed, savefolder=savefolder, verbose=True)
 

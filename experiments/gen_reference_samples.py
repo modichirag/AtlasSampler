@@ -19,7 +19,7 @@ class ReferenceSamples():
                  seed=123,
                  savefolder=None):
 
-        self.analytic_models = ['normal', 'funnel', 'rosenbrock', 'multifunnel',
+        self.analytic_models = ['normal', 'funnel', 'rosenbrock', 'multifunnel', 'rosenbrockhy3'
                                 'corr_normal90', 'corr_normal95']
         self.model_directory = model_directory
         self.stanfile = stanfile
@@ -54,10 +54,30 @@ class ReferenceSamples():
             if self.chain_index: ref_samples = np.expand_dims(ref_samples, axis=0)
 
         if self.exp == 'rosenbrock':
-            x = np.random.normal(1, 1, self.n_samples)
-            y = np.array([np.random.normal(x**2, 0.1) for _ in range(self.D-1)]).T
-            x = np.expand_dims(x, axis=1)
+            copies = self.D//2
+            x, y = [], []
+            for i in range(copies):
+                x.append(np.random.normal(1, 1, self.n_samples))
+                y.append(np.random.normal(x[-1]**2, 0.1))
+            x = np.stack(x, axis=1)
+            y = np.stack(y, axis=1)
             ref_samples = np.concatenate([x, y], axis=1)
+            # x = np.random.normal(1, 1, self.n_samples)
+            # y = np.array([np.random.normal(x**2, 0.1) for _ in range(self.D-1)]).T
+            # x = np.expand_dims(x, axis=1)
+            # ref_samples = np.concatenate([x, y], axis=1)
+            if self.chain_index: ref_samples = np.expand_dims(ref_samples, axis=0)
+
+        if self.exp == 'rosenbrockhy3':
+            x = np.random.normal(1, 1, self.n_samples)
+            x1, x2 = [], []
+            for i in range((self.D-1)//2):
+                x1.append(np.random.normal(x**2, 0.1))
+                x2.append(np.random.normal(x1[-1]**2, 0.1))
+            x1 = np.stack(x1, axis=1)
+            x2 = np.stack(x2, axis=1)
+            x = np.expand_dims(x, axis=1)
+            ref_samples = np.concatenate([x, x1, x2], axis=1)
             if self.chain_index: ref_samples = np.expand_dims(ref_samples, axis=0)
 
         if 'corr_normal' in self.exp:
@@ -114,11 +134,14 @@ class ReferenceSamples():
         self.exp = exp
         self.chain_index = chain_index
         if exp in self.analytic_models:
+            print("Generate samples analytically")
             self.n_samples = 1000000
             return self.gen_analytic_samples()
         else:
             if run_nuts:
+                print("Running nuts to generate reference samples")
                 self.n_samples = 10000
                 return self.nuts_samples()
             else:
+                print("No reference samples")
                 return None

@@ -26,13 +26,14 @@ def add_default_args(parser):
     parser.add_argument('--nleap_distribution', type=str, default='empirical', help='higher percentile of trajectory distribution')
     
     # Argument parsed by stepsize adaptation
-    parser.add_argument('--constant_trajectory', type=int, default=1, help='trajectory length of delayed stage, deault=1') 
+    parser.add_argument('--constant_trajectory', type=int, default=2, help='trajectory length of delayed stage, deault=1') 
     parser.add_argument('--probabilistic', type=int, default=1, help='probabilistic atlas, default=1')
     parser.add_argument('--n_hessian_samples', type=int, default=10, help='number of points for lbfgs')
     parser.add_argument('--n_hessian_attempts', type=int, default=10, help='number of points for lbfgs')
+    parser.add_argument('--hessian_rank', type=int, default=-1, help='rank of hessian matrix')
     parser.add_argument('--hessian_mode', type=str, default='bfgs', help='method to approximate hessian')
-    parser.add_argument('--stepsize_distribution', type=str, default='beta', help='distribution for stepsize')
-    parser.add_argument('--stepsize_sigma', type=float, default=2., help='width of lognormal distribution')
+    parser.add_argument('--stepsize_distribution', type=str, default='lognormal', help='distribution for stepsize')
+    parser.add_argument('--stepsize_sigma', type=float, default=1.2, help='width of lognormal distribution')
     parser.add_argument('--max_stepsize_reduction', type=float, default=1000., help='maximum reduction in stepsize')
 
     # Argument parsed by Atlas
@@ -43,5 +44,6 @@ def add_default_args(parser):
     parser.add_argument('--metric', type=str, default="unit_e", help='metric for NUTS')
     parser.add_argument('--n_metric_adapt', type=int, default=0, help='number of iterations for NUTS metric adaptation')
     parser.add_argument('--nuts', type=int, default=0, help='run nuts')
+    parser.add_argument('--max_treedepth', type=int, default=10, help='max treedepth')
 
     return parser
