@@ -27,8 +27,6 @@ print('My rank is ',wrank)
 # Set some paths
 SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
 REFERENCE_FOLDER = "/mnt/ceph/users/cmodi/PosteriorDB/"
-#SAVEFOLDER = './tmp/'
-#REFERENCE_FOLDER = "./tmp/reference/"
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 MODELDIR = '../'
 
@@ -36,16 +34,16 @@ MODELDIR = '../'
 import argparse
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser = default_args.add_default_args(parser)
-parser.add_argument('--combine_chains', type=int, default=1, help='combine nleap from chains')
-parser.add_argument('--step_factor', type=int, default=1, help='stepsize factor over nuts')
+parser.add_argument('--combine_chains', type=int, default=0, help='combine nleap from chains')
+parser.add_argument('--step_factor', type=float, default=1, help='stepsize factor over nuts')
 
 args = parser.parse_args()
 args.n_chains = wsize
 print("Model name : ", args.exp)
 
 # Load model and reference samples in rank 0. Generate if necessary.
-reference_path =  f'{REFERENCE_FOLDER}/{args.exp}/'
-run_nuts = bool(not wrank)
+reference_path =  f'{REFERENCE_FOLDER}/'
+run_nuts = False #bool(not wrank)
 model, D, lp, lp_g, ref_samples, files = models.stan_model(args.exp, args.n, 
                                                            bridgestan_path=BRIDGESTAN, 
                                                            model_directory=MODELDIR, 
@@ -101,12 +99,22 @@ else:
     savefolder = f"{savefolder}"[:-1] + f"-nodr/"
 if args.constant_trajectory !=0:
     savefolder = f"{savefolder}"[:-1] + f"-ctraj{args.constant_trajectory}/"
+if args.nleap_distribution == 'uniform':
+    savefolder = f"{savefolder}"[:-1] + f"-uninleap/"
+if args.nleap_distribution == 'constant':
+    savefolder = f"{savefolder}"[:-1] + f"-nleap{args.n_leapfrog}/"
 if args.stepsize_distribution == 'lognormal':
     savefolder = f"{savefolder}"[:-1] + f"-{args.stepsize_distribution}/"
     if args.stepsize_sigma != 2.:
         savefolder = f"{savefolder}"[:-1] + f"-stepsig{args.stepsize_sigma}/"
-if args.step_factor != 1:
+if args.step_factor != 1.:
     savefolder = f"{savefolder}"[:-1] + f"-stepfac{args.step_factor}/"
+if args.target_accept != 0.8:
+    savefolder = f"{savefolder}"[:-1] + f"-target{args.target_accept:0.2f}/"
+if args.hessian_mode != 'bfgs':
+    savefolder = f"{savefolder}"[:-1] + f"-{args.hessian_mode}/"
+if args.hessian_rank != -1:
+    savefolder = f"{savefolder}"[:-1] + f"-rank{args.hessian_rank}/"
 if args.suffix != "":
     savefolder = f"{savefolder}"[:-1] + f"-{args.suffix}/"
     
@@ -117,18 +125,23 @@ print(f"Saving Atlas runs in folder : {savefolder}")
 np.random.seed(args.seed)
 if args.combine_chains : communicator = comm
 else: communicator = None
-kernel = Atlas(D, lp, lp_g, 
-               mass_matrix = np.eye(D), 
-               constant_trajectory = args.constant_trajectory,
-               probabilistic = args.probabilistic,
-               delayed_proposals = args.delayed_proposals,
-               offset = args.offset,
-               min_nleapfrog = args.min_leapfrog,
-               max_nleapfrog = args.max_leapfrog,
-               low_nleap_percentile = args.low_nleap_percentile,
-               high_nleap_percentile = args.high_nleap_percentile,
-               stepsize_distribution = args.stepsize_distribution,
-               stepsize_sigma = args.stepsize_sigma)
+kernel = Atlasv2_Prop(D, lp, lp_g, 
+                      mass_matrix = np.eye(D), 
+                      constant_trajectory = args.constant_trajectory,
+                      probabilistic = args.probabilistic,
+                      delayed_proposals = args.delayed_proposals,
+                      offset = args.offset,
+                      min_nleapfrog = args.min_nleapfrog,
+                      max_nleapfrog = args.max_nleapfrog,
+                      low_nleap_percentile = args.low_nleap_percentile,
+                      high_nleap_percentile = args.high_nleap_percentile,
+                      stepsize_distribution = args.stepsize_distribution,
+                      nleap_distribution = args.nleap_distribution,
+                      stepsize_sigma = args.stepsize_sigma,
+                      n_hessian_samples = args.n_hessian_samples,
+                      hessian_rank = args.hessian_rank,
+                      max_stepsize_reduction = args.max_stepsize_reduction, 
+                      hessian_mode = args.hessian_mode)
                
 sampler = kernel.sample(q0,
                         seed = wrank,
@@ -163,61 +176,61 @@ if wrank == 0:
     
     samples = np.stack(samples, axis=0)
     print("\nTotal accpetances for Atlas Sampler : ", np.unique(np.stack(accepts), return_counts=True))
-    
+    print(list(zip(*np.unique(np.stack(accepts), return_counts=True))))    
     print("\nPlotting")
     suptitle = f"{args.exp}:D={D}; " + savefolder.split(f'{folder}/')[1][:-1]
     samples_list = [samples_nuts, samples]
     labels = ["NUTS", "Atlas"]
         
-    # plot histograms
-    try:
-        plotting.plot_histograms(samples_list, 
-                                 nplot = min(5, D), 
-                                 labels = labels, 
-                                 savefolder = savefolder, 
-                                 suptitle = suptitle,
-                                 reference_samples = ref_samples)
-        plt.savefig('tmp.png')
-        plt.close()
-    except Exception as e:
-        print(e)
+    # # plot histograms
+    # try:
+    #     plotting.plot_histograms(samples_list, 
+    #                              nplot = min(5, D), 
+    #                              labels = labels, 
+    #                              savefolder = savefolder, 
+    #                              suptitle = suptitle,
+    #                              reference_samples = ref_samples)
+    #     plt.savefig('tmp.png')
+    #     plt.close()
+    # except Exception as e:
+    #     print(e)
         
-    # plot cost
-    try:
-        plt.figure()
-        normalize = n_leapfrogs_nuts.sum(axis=1).mean()
-        toplot = [n_leapfrogs_nuts.sum(axis=1)/normalize, np.array(gradcounts).sum(axis=1)/normalize]
-        plt.boxplot(toplot, patch_artist=True,
-                    boxprops=dict(facecolor='C0', color='C0', alpha=0.5), labels=labels)
-        plt.grid(which='both', lw=0.3)
-        plt.ylabel('# Leapfrogs', fontsize=12)
-        plt.axhline(1., color='k', ls=":")
-        plt.suptitle(suptitle)
-        plt.savefig(f"{savefolder}/gradcounts")
-        plt.close()
-    except Exception as e:
-        print(e)
+    # # plot cost
+    # try:
+    #     plt.figure()
+    #     normalize = n_leapfrogs_nuts.sum(axis=1).mean()
+    #     toplot = [n_leapfrogs_nuts.sum(axis=1)/normalize, np.array(gradcounts).sum(axis=1)/normalize]
+    #     plt.boxplot(toplot, patch_artist=True,
+    #                 boxprops=dict(facecolor='C0', color='C0', alpha=0.5), labels=labels)
+    #     plt.grid(which='both', lw=0.3)
+    #     plt.ylabel('# Leapfrogs', fontsize=12)
+    #     plt.axhline(1., color='k', ls=":")
+    #     plt.suptitle(suptitle)
+    #     plt.savefig(f"{savefolder}/gradcounts")
+    #     plt.close()
+    # except Exception as e:
+    #     print(e)
 
-    # plot rmse
-    try:
-        if ref_samples is not None:
-            counts_list = [n_leapfrogs_nuts, np.array(gradcounts)]    
-            plotting.boxplot_rmse(ref_samples, samples_list, counts_list, labels, 
-                    savefolder=savefolder, suptitle=suptitle)
-            plt.close()
+    # # plot rmse
+    # try:
+    #     if ref_samples is not None:
+    #         counts_list = [n_leapfrogs_nuts, np.array(gradcounts)]    
+    #         plotting.boxplot_rmse(ref_samples, samples_list, counts_list, labels, 
+    #                 savefolder=savefolder, suptitle=suptitle)
+    #         plt.close()
 
-        if args.exp == 'funnel':
-            samples_list0 = [i[..., 0:1] for i in samples_list]
-            plotting.boxplot_rmse(ref_samples[..., 0:1], samples_list0, counts_list, labels, 
-                    savefolder=savefolder, suptitle=suptitle, savename='rmse_logscale')
-            plt.close()
-            #
-            samples_list1 = [i[..., 1:] for i in samples_list]
-            plotting.boxplot_rmse(ref_samples[..., 1:], samples_list1, counts_list, labels, 
-                    savefolder=savefolder, suptitle=suptitle, savename='rmse_latents')
-            plt.close()
-    except Exception as e:
-        print(e)
+    #     if args.exp == 'funnel':
+    #         samples_list0 = [i[..., 0:1] for i in samples_list]
+    #         plotting.boxplot_rmse(ref_samples[..., 0:1], samples_list0, counts_list, labels, 
+    #                 savefolder=savefolder, suptitle=suptitle, savename='rmse_logscale')
+    #         plt.close()
+    #         #
+    #         samples_list1 = [i[..., 1:] for i in samples_list]
+    #         plotting.boxplot_rmse(ref_samples[..., 1:], samples_list1, counts_list, labels, 
+    #                 savefolder=savefolder, suptitle=suptitle, savename='rmse_latents')
+    #         plt.close()
+    # except Exception as e:
+    #     print(e)
 
 comm.Barrier()    
 

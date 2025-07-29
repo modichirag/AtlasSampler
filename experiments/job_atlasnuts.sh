@@ -40,7 +40,7 @@ if [ "$stepdist" == "lognormal" ] ; then
         for combinechains in  0 1    ; do
             for stepsig in  1.2   ; do
                 for nleapdist in  "uniform"   ;  do
-                    srun -n $nchains python -u compare_atlasnuts2prop.py --exp $exp -n $n --n_samples $nsamples --combine_chains $combinechains   --constant_trajectory $ctraj --nleap_distribution $nleapdist  --stepsize_sigma $stepsig  --stepsize_distribution $stepdist --max_nleapfrog 2048 --step_factor $stepfac --probabilistic $prob --n_leapfrog_adapt $nleapadapt #--suffix "nladapt200"
+                    srun -n $nchains python -u compare_atlasnuts.py --exp $exp -n $n --n_samples $nsamples --combine_chains $combinechains   --constant_trajectory $ctraj --nleap_distribution $nleapdist  --stepsize_sigma $stepsig  --stepsize_distribution $stepdist --max_nleapfrog 2048 --step_factor $stepfac --probabilistic $prob --n_leapfrog_adapt $nleapadapt #--suffix "nladapt200"
                 done
             done
         done
