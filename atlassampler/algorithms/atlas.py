@@ -72,7 +72,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
                 between [0.33, 0.66] for every iteration.      
             constant_trajectory (0, 1, or 2, default=1): determine if number of leapfrog steps for
                 delayed proposals are scaled by stepsize ratio. 0: no scaling for any delayed proposal. 
-                1: only delayed proposal on failure are scaled. 2: both delayed proposals are sacled 
+                1: only delayed proposal on failure are scaled. 2: both delayed proposals are scaled 
             probabilistic (0 or 1, default=0): wether to make delayed proposal without failure
                 0: always make second delayed proposal. 1: make delayed proposal only the first proposal
                 is rejected not due to a sub u-turn  
@@ -93,7 +93,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
                 baseline stepsize/max_stepsize_reduction
         """
 
-        super(Atlas, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
+        super(Atlasv2_Prop, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                     mass_matrix=mass_matrix, offset=offset,
                                     low_nleap_percentile=low_nleap_percentile,
                                     high_nleap_percentile=high_nleap_percentile, 
@@ -106,98 +106,117 @@ class Atlas(DRHMC_AdaptiveStepsize):
         self.constant_trajectory=constant_trajectory
 
         
-    def preliminary_step(self, q, p, step_size, offset, n_leapfrog=None):
+    def preliminary_step(self, q, p, step_size, offset, n_leapfrog_input=None):
         """
         First step is making a no-uturn proposal.
         """
         try:
             # Go forward
             Nuturn, qlist, plist, glist, success = self.nuts_criterion(q, p, step_size)
-            if Nuturn < self.min_nleapfrog :
-                # if self.verbose: 
-                log_prob_list = [-np.inf, -np.inf, -np.inf]
-                Hs, n_leapfrog = [0, 0], 0.
-                return [q, p], [qlist, plist, glist], log_prob_list, Hs, n_leapfrog
+            # if not success:
+                # print(success, Nuturn, q[0])
+                # if Nuturn >= self.min_nleapfrog :
+                #     print(success, Nuturn, q[0])  
 
+        except Exception as e:
+            PrintException()
+            log_prob_list = [-np.inf, -np.inf, -np.inf] # log prob, log prob H, log prob N
+            qpg_list = [[], [], []]
+            Hs, n_leapfrog = [0, 0], 0
+            return [q, p], qpg_list, log_prob_list, Hs, n_leapfrog
+
+        if Nuturn < self.min_nleapfrog :
+            log_prob_list = [-np.inf, -np.inf, -np.inf]
+            Hs, n_leapfrog = [0, 0], 0.
+            return [q, p], [qlist, plist, glist], log_prob_list, Hs, n_leapfrog
+
+        else:
+            n_leapfrog, lp_N = self.nleapfrog_sample_and_lp(Nuturn,  offset, nleapfrog=n_leapfrog_input)
+            if lp_N == -np.inf:
+                log_prob_list, Hs = [0., 0., 0.], [0., 0.]
+                n_leapfrog = 0
+                return [q, p], [qlist, plist, glist], log_prob_list, Hs, n_leapfrog            
+            
             else:
-                if (n_leapfrog is not None):
-                    if (Nuturn <= n_leapfrog): 
-                        # If ghost trajectory can never reach n_leapfrog proposals
-                        # Hence this should never make a DR proposal. Thus set log_prob_accept=0
-                        log_prob_list, Hs = [0., 0., 0.], [0., 0.]
-                        return [q, p], [qlist, plist, glist], log_prob_list, Hs, n_leapfrog
+                if (n_leapfrog_input is not None) :
+                    assert  n_leapfrog == n_leapfrog_input
+                q1, p1 = qlist[n_leapfrog], plist[n_leapfrog]           
 
-                n_leapfrog, lp_N = self.nleapfrog_sample_and_lp(Nuturn,  offset, nleapfrog=n_leapfrog)
-                q1, p1 = qlist[n_leapfrog], plist[n_leapfrog]
-                
                 # Go backward
-                Nuturn_rev, qlist_rev, plist_rev, glist_rev, success = self.nuts_criterion(q1, -p1, step_size)
+                Nuturn_rev = self.nuts_criterion(q1, -p1, step_size)[0]
                 n_leapfrog_rev, lp_N_rev = self.nleapfrog_sample_and_lp(Nuturn_rev, offset, nleapfrog=n_leapfrog)
                 assert n_leapfrog_rev == n_leapfrog
                 self.Vgcount -= min(Nuturn_rev, n_leapfrog) #adjust for number of common steps when going backward
                 
                 # Hastings
                 log_prob_H, H0, H1 = self.accept_log_prob([q, p], [q1, p1], return_H=True)
-                log_prob_N = lp_N_rev - lp_N 
-                log_prob_accept = log_prob_H + lp_N_rev - lp_N 
-                log_prob_accept = min(0, log_prob_accept)
+                Hs  = [H0, H1]
+                log_prob_N = lp_N_rev - lp_N                 
+                log_prob_accept = log_prob_H + log_prob_N
+                if np.isnan(log_prob_accept):
+                    log_prob_accept = -np.inf
+                log_prob_accept = min(0, log_prob_accept) 
                 log_prob_list = [log_prob_accept, log_prob_H, log_prob_N]
-                
-                return [q1, p1], [qlist, plist, glist], log_prob_list, [H0, H1], n_leapfrog
+                        
+                return [q1, p1], [qlist, plist, glist], log_prob_list, Hs, n_leapfrog
 
-        except Exception as e:
-            PrintException()
-            return [q, p], [[], [], []], [-np.inf, 0., 0.], [0, 0], 0.
 
         
-    def delayed_step(self, q0, p0, qlist, glist, step_size, offset, n_leapfrog, log_prob_accept_first):
+    def delayed_step(self, q0, p0, qlist, glist, step_size, offset, n_leapfrog, log_prob_list_first): 
         ##
+        
+        log_prob_accept_first, log_prob_H_first, log_prob_N_first = log_prob_list_first
+        
         try:
             # Estimate the Hessian given the rejected trajectory, use it to estimate step-size
-            eps1, epsf1 = self.get_stepsize_distribution(q0, p0, qlist, glist, step_size)
+            epsf1 = self.get_stepsize_distribution(q0, p0, qlist, glist, step_size)[1]
             step_size_new = epsf1.rvs(size=1)[0]
             
             # Make the second proposal
             if self.constant_trajectory == 2:
-                n_leapfrog_new = int(min(self.max_nleapfrog, n_leapfrog*step_size / step_size_new))
+                #n_leapfrog_new = int(min(self.max_nleapfrog, n_leapfrog*step_size / step_size_new))  ##THIS WAS CHANGED TO TEST rosenbrockhy3. How does it affect others?
+                n_leapfrog_new = int(n_leapfrog*step_size / step_size_new)
             else:
                 n_leapfrog_new = n_leapfrog                
             q1, p1, _, _ = self.leapfrog(q0, p0, n_leapfrog_new, step_size_new)
             log_prob_H, H0, H1 = self.accept_log_prob([q0, p0], [q1, p1], return_H=True)
             
             # Ghost trajectory for the second proposal
-            qp_ghost, qpg_ghost_list, log_prob_ghost_list, Hs_ghost, n_leapfrog_ghost = \
-                                        self.preliminary_step(q1, -p1, step_size, offset=offset, n_leapfrog=n_leapfrog)
+            qp_ghost, qpg_ghost_list, log_prob_list_ghost, Hs_ghost, n_leapfrog_ghost = \
+                                        self.preliminary_step(q1, -p1, step_size, offset=offset, n_leapfrog_input=n_leapfrog)
 
             if n_leapfrog_ghost == 0: #in this case, ghost stage cannot lead to the current delayed propsal
                 qf, pf, accepted = q0, p0, -14
 
             else:
-                log_prob_accept_ghost, log_prob_H_ghost, log_prob_N_ghost = log_prob_ghost_list
-                qlist_ghost, plist_ghost, glist_ghost = qpg_ghost_list
-                log_prob_delayed = np.log((1-np.exp(log_prob_accept_ghost))) - np.log((1- np.exp(log_prob_accept_first)))
-                if self.probabilistic == 1:
-                    if log_prob_N_ghost == -np.inf: 
-                        log_prob_delayed = -np.inf
+                log_prob_accept_ghost, log_prob_H_ghost, log_prob_N_ghost = log_prob_list_ghost
+                if (self.probabilistic >= 1) & (log_prob_N_ghost == -np.inf): 
+                        qf, pf, accepted = q0, p0, -12
+                else:
+                    # Hastings
+                    qlist_ghost, plist_ghost, glist_ghost = qpg_ghost_list
+                    epsf2 = self.get_stepsize_distribution(q1, -p1, qlist_ghost, glist_ghost, step_size)[1]
+                    log_prob_eps = epsf2.logpdf(step_size_new) - epsf1.logpdf(step_size_new)
+                    log_prob_delayed = np.log((1-np.exp(log_prob_accept_ghost))) - np.log((1- np.exp(log_prob_accept_first)))
+                    log_prob_proposal_first = log_prob_N_first
+                    log_prob_proposal_ghost = log_prob_N_ghost
+                    log_prob_proposal = log_prob_proposal_ghost - log_prob_proposal_first # this is different from atlasv2
+                    if self.probabilistic == 2:
+                        log_prob_proposal_first = np.log(1 - np.exp(log_prob_H_first))
+                        log_prob_proposal_ghost = np.log(1 - np.exp(log_prob_H_ghost))
+                        log_prob_proposal += log_prob_proposal_ghost - log_prob_proposal_first
 
-                # Hastings
-                eps2, epsf2 = self.get_stepsize_distribution(q1, -p1, qlist_ghost, glist_ghost, step_size)
-                log_prob_eps = epsf2.logpdf(step_size_new) - epsf1.logpdf(step_size_new)
-                log_prob_accept = log_prob_H + log_prob_delayed + log_prob_eps
+                    log_prob_accept = log_prob_H + log_prob_delayed + log_prob_eps + log_prob_proposal
 
-                u =  np.random.uniform(0., 1., size=1)
-                if np.isnan(log_prob_accept) or (q0-q1).sum()==0:
-                    qf, pf, accepted = q0, p0, -99
-                elif  np.log(u) > min(0., log_prob_accept):
-                    qf, pf = q0, p0
-                    if log_prob_delayed == -np.inf:
-                        accepted = -12
-                    elif log_prob_eps == -np.inf:
-                        accepted = -13
-                    else:
-                        accepted = -11
-                else: 
-                    qf, pf, accepted = q1, p1, 2
+                    u =  np.random.uniform(0., 1., size=1)
+                    if np.isnan(log_prob_accept) or (q0-q1).sum()==0:
+                        qf, pf, accepted = q0, p0, -198
+                    elif  np.log(u) > min(0., log_prob_accept):
+                        qf, pf = q0, p0
+                        if log_prob_eps == -np.inf: accepted = -13
+                        else: accepted = -11
+                    else: 
+                        qf, pf, accepted = q1, p1, 2
 
             return qf, pf, accepted, [H0, H1]
             
@@ -206,12 +225,12 @@ class Atlas(DRHMC_AdaptiveStepsize):
             return q0, p0, -199, [0, 0]
         
 
-    def delayed_step_upon_failure(self, q0, p0, qlist, glist, step_size, offset, n_leapfrog, log_prob_accept_first):
+    def delayed_step_upon_failure(self, q0, p0, step_size): 
         """Delayed step upon failure is executed when Nuturn of first step < min_nleapfrog.
         """
         try:
             # Estimate the Hessian and the stepsize given the rejected trajectory
-            eps1, epsf1 = self.get_stepsize_distribution(q0, p0, qlist, glist, step_size)
+            epsf1 = self.get_stepsize_distribution(q0, p0, [], [], step_size)[1]
             step_size_new = epsf1.rvs(size=1)[0]
             
             # Make the second proposal
@@ -222,46 +241,42 @@ class Atlas(DRHMC_AdaptiveStepsize):
                     
             q1, p1, _, _ = self.leapfrog(q0, p0, n_leapfrog_new, step_size_new)
             log_prob_H, H0, H1 = self.accept_log_prob([q0, p0], [q1, p1], return_H=True)
+            Hs = [H0, H1]
             
             # Ghost trajectory for the second proposal
-            qp_ghost, qpg_list_ghost, log_prob_ghost_list, Hs_ghost, n_leapfrog_ghost = \
-                                            self.preliminary_step(q1, -p1, step_size, offset=offset, n_leapfrog=n_leapfrog)
-            
-            if n_leapfrog_ghost != 0: #in this case, ghost stage cannot lead to the current delayed propsal
-                qf, pf, accepted = q0, p0, -24
-                
-            else :
-                log_prob_accept_ghost, log_prob_H_ghost, log_prob_N_ghost = log_prob_ghost_list
-                qlist_ghost, plist_ghost, glist_ghost = qpg_list_ghost
-                eps2, epsf2 = self.get_stepsize_distribution(q1, -p1, qlist_ghost, glist_ghost, step_size)
+            try:
+                Nuturn_ghost = self.nuts_criterion(q1, -p1, step_size)[0]            
+                if Nuturn_ghost >= self.min_nleapfrog :
+                    qf, pf, accepted = q0, p0, -24
+                    return qf, pf, accepted, Hs                
+            except Exception as e:
+                PrintException()                
 
-                # Hastings
-                log_prob_delayed = np.log((1-np.exp(log_prob_accept_ghost))) - np.log((1- np.exp(log_prob_accept_first)))
-                log_prob_eps = epsf2.logpdf(step_size_new) - epsf1.logpdf(step_size_new)
-                log_prob_accept = log_prob_H + log_prob_delayed + log_prob_eps
+            # Hastings
+            epsf2 = self.get_stepsize_distribution(q1, -p1, [], [], step_size)[1]
+            log_prob_eps = epsf2.logpdf(step_size_new) - epsf1.logpdf(step_size_new)
+            log_prob_accept = log_prob_H + log_prob_eps
 
-                u =  np.random.uniform(0., 1., size=1)
-                if np.isnan(log_prob_accept) or (q0-q1).sum()==0:
-                    qf, pf, accepted = q0, p0, -99
-                elif  np.log(u) > min(0., log_prob_accept):
-                    qf, pf = q0, p0
-                    if log_prob_delayed == -np.inf:
-                        accepted = -22
-                    elif log_prob_eps == -np.inf:
-                        accepted = -23
-                    else:
-                        accepted = -21
-                else: 
-                    qf, pf, accepted = q1, p1, 3
+            u =  np.random.uniform(0., 1., size=1)
+            if np.isnan(log_prob_accept) or (q0-q1).sum()==0:
+                qf, pf, accepted = q0, p0, -298
+            elif  np.log(u) > min(0., log_prob_accept):
+                qf, pf = q0, p0
+                if log_prob_eps == -np.inf:
+                    accepted = -23
+                else:
+                    accepted = -21
+            else: 
+                qf, pf, accepted = q1, p1, 3
                     
             return qf, pf, accepted, [H0, H1]
             
         except Exception as e:
             PrintException()
-            print("exception : ", e)
             return q0, p0, -299, [0, 0]
         
 
+        
     def step(self, q, n_leapfrog=None, step_size=None):
 
         if step_size is None: step_size = self.step_size
@@ -276,28 +291,42 @@ class Atlas(DRHMC_AdaptiveStepsize):
         
         # Hastings
         if n_leapfrog == 0 :
-            return self.delayed_step_upon_failure(q, p, qlist, glist,
-                                                step_size=step_size, offset=offset, n_leapfrog=n_leapfrog,
-                                                log_prob_accept_first=log_prob_accept)
+            return self.delayed_step_upon_failure(q, p, step_size=step_size)
         else:
             u =  np.random.uniform(0., 1., size=1)
-            if  np.log(u) > min(0., log_prob_accept):
+            if np.isnan(log_prob_accept): log_prob_accept = -np.inf
+            if  np.log(u) > min(0., log_prob_accept): #reject
                 if self.delayed_proposals:
                     if self.probabilistic == 1:
                         if log_prob_N == -np.inf:
                             return q, p, -1, Hs
                         else:
                             return self.delayed_step(q, p, qlist, glist,
-                                                    step_size=step_size, offset=offset, n_leapfrog=n_leapfrog,
-                                                    log_prob_accept_first=log_prob_accept)
+                                                     step_size = step_size, offset = offset, n_leapfrog = n_leapfrog,
+                                                     log_prob_list_first = log_prob_list)
+                                                     # log_prob_accept_first=log_prob_accept, log_prob_H_first=log_prob_H, log_prob_N_first=log_prob_N)
+                    elif self.probabilistic == 2:
+                        if log_prob_N == -np.inf:
+                            return q, p, -1, Hs
+                        else:
+                            v =  np.random.uniform(0., 1., size=1)
+                            log_prob_proposal = np.log(1 - np.exp(log_prob_H))
+                            if np.isnan(log_prob_proposal): log_prob_proposal == -np.inf
+                            if np.log(v) > min(0., log_prob_proposal):
+                                return q, p, -1, Hs                                
+                            else:
+                                return self.delayed_step(q, p, qlist, glist,
+                                                         step_size = step_size, offset = offset, n_leapfrog = n_leapfrog,
+                                                         log_prob_list_first = log_prob_list)
+
                     else:
                         return self.delayed_step(q, p, qlist, glist, 
-                                                step_size=step_size, offset=offset, n_leapfrog=n_leapfrog,
-                                                log_prob_accept_first=log_prob_accept)
+                                                 step_size = step_size, offset = offset, n_leapfrog = n_leapfrog,
+                                                 log_prob_list_first = log_prob_list)
                 else:
                     return q, p, -1, Hs
 
-            else:
+            else: #accept
                 qf, pf = q1, p1
                 accepted = 1
                 return qf, pf, accepted, Hs
@@ -323,10 +352,8 @@ class Atlas(DRHMC_AdaptiveStepsize):
 
         if n_leapfrog_adapt:  # Construct a distribution of trajectory lengths
             q = self.adapt_trajectory_length(q, n_leapfrog_adapt)
-            #comm.Barrier()
             self.combine_trajectories_from_chains(comm)
             state.trajectories = self.traj_array
-            #comm.Barrier()
             print(f"Shape of trajectories : ", self.traj_array.shape)
             self.nleapfrog_jitter()
         else:
