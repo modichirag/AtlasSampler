@@ -113,6 +113,11 @@ class Atlasv2(DRHMC_AdaptiveStepsize):
         try:
             # Go forward
             Nuturn, qlist, plist, glist, success = self.nuts_criterion(q, p, step_size)
+            # if not success:
+                # print(success, Nuturn, q[0])
+                # if Nuturn >= self.min_nleapfrog :
+                #     print(success, Nuturn, q[0])  
+
         except Exception as e:
             PrintException()
             log_prob_list = [-np.inf, -np.inf, -np.inf] # log prob, log prob H, log prob N
@@ -167,6 +172,12 @@ class Atlasv2(DRHMC_AdaptiveStepsize):
             # Make the second proposal
             if self.constant_trajectory == 2:
                 n_leapfrog_new = int(min(self.max_nleapfrog, n_leapfrog*step_size / step_size_new))
+            elif self.constant_trajectory == 3:
+                u = np.random.uniform(0., 1., size=1)
+                if u > 0.5:
+                    n_leapfrog_new = int(min(self.max_nleapfrog, n_leapfrog*step_size / step_size_new))
+                else: 
+                    n_leapfrog_new = n_leapfrog
             else:
                 n_leapfrog_new = n_leapfrog                
             q1, p1, _, _ = self.leapfrog(q0, p0, n_leapfrog_new, step_size_new)
@@ -237,13 +248,12 @@ class Atlasv2(DRHMC_AdaptiveStepsize):
                 Nuturn_ghost = self.nuts_criterion(q1, -p1, step_size)[0]            
                 if Nuturn_ghost >= self.min_nleapfrog :
                     qf, pf, accepted = q0, p0, -24
-                    return qf, pf, accepted, Hs
-                
+                    return qf, pf, accepted, Hs                
             except Exception as e:
-                PrintException()                    
-            epsf2 = self.get_stepsize_distribution(q1, -p1, [], [], step_size)[1]
+                PrintException()                
 
             # Hastings
+            epsf2 = self.get_stepsize_distribution(q1, -p1, [], [], step_size)[1]
             log_prob_eps = epsf2.logpdf(step_size_new) - epsf1.logpdf(step_size_new)
             log_prob_accept = log_prob_H + log_prob_eps
 
@@ -341,10 +351,8 @@ class Atlasv2(DRHMC_AdaptiveStepsize):
 
         if n_leapfrog_adapt:  # Construct a distribution of trajectory lengths
             q = self.adapt_trajectory_length(q, n_leapfrog_adapt)
-            #comm.Barrier()
             self.combine_trajectories_from_chains(comm)
             state.trajectories = self.traj_array
-            #comm.Barrier()
             print(f"Shape of trajectories : ", self.traj_array.shape)
             self.nleapfrog_jitter()
         else:

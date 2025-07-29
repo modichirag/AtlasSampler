@@ -109,7 +109,7 @@ class ReferenceSamples():
         return samples
 
 
-    def generate_samples(self, exp, D, chain_index=True, run_nuts=True):
+    def generate_samples(self, exp, D, chain_index=True, run_nuts=False):
         self.D = D
         self.exp = exp
         self.chain_index = chain_index

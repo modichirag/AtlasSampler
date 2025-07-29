@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-from scipy.stats import multivariate_normal, uniform
+from scipy.stats import multivariate_normal
 
 from .hmc import HMC
 from ..util import Sampler, DualAveragingStepSize, PrintException
@@ -219,7 +219,7 @@ class HMC_Uturn_Jitter(HMC_Uturn):
         self.high_nleap_percentile = high_nleap_percentile
         self.nleap_factor = nleap_factor
         self.nleap_distribution = nleap_distribution
-
+        print("Distribution of trajectory lengths: ", self.nleap_distribution)
 
     def adapt_trajectory_length(self, q, n_leapfrog_adapt):
         """Run prelimiary iterations to construct an empirical distribution of u-turn lengths"""        
