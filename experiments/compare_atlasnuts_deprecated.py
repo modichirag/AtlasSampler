@@ -6,7 +6,7 @@ import numpy as np
 import os, sys
 import matplotlib.pyplot as plt
     
-from atlassampler import Atlas_Uturn
+from atlassampler import Atlas
 from atlassampler.wrappers import cmdstanpy_wrapper
 import logging
 import cmdstanpy as csp
@@ -27,6 +27,8 @@ print('My rank is ',wrank)
 # Set some paths
 SAVEFOLDER = '/mnt/ceph/users/cmodi/atlassampler/'
 REFERENCE_FOLDER = "/mnt/ceph/users/cmodi/PosteriorDB/"
+#SAVEFOLDER = './tmp/'
+#REFERENCE_FOLDER = "./tmp/reference/"
 BRIDGESTAN = "/mnt/home/cmodi/Research/Projects/bridgestan/"
 MODELDIR = '../'
 
@@ -34,11 +36,13 @@ MODELDIR = '../'
 import argparse
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser = default_args.add_default_args(parser)
-parser.add_argument('--offset_delayed', type=float, default=1.0, help='offset for uturn sampler')
-
+parser.add_argument('--combine_chains', type=int, default=1, help='combine nleap from chains')
+parser.add_argument('--step_factor', type=float, default=1, help='stepsize factor over nuts')
 
 args = parser.parse_args()
 args.n_chains = wsize
+
+print("#######THIS VERSION OF ATLAS IS DEPRECATED#######")
 print("Model name : ", args.exp)
 
 # Load model and reference samples in rank 0. Generate if necessary.
@@ -89,16 +93,24 @@ comm.Barrier()
 
 #####################
 # Atlas
-folder = 'atlas-uturn'
+if args.combine_chains: folder = 'atlas-nuts'
+else: folder = 'atlas-nuts-indep'
 savefolder = f"{savepath}/{folder}/offset{args.offset:0.2f}/"
-if args.offset_delayed !=1:
-    savefolder = f"{savefolder}"[:-1] + f"-offsetd{args.offset_delayed:0.2f}/"
-if args.probabilistic !=0:
-    savefolder = f"{savefolder}"[:-1] + f"-prob{args.probabilistic}/"
+if args.delayed_proposals == 1:
+    if args.probabilistic !=0:
+        savefolder = f"{savefolder}"[:-1] + f"-prob{args.probabilistic}/"
+else:
+    savefolder = f"{savefolder}"[:-1] + f"-nodr/"
+if args.constant_trajectory !=0:
+    savefolder = f"{savefolder}"[:-1] + f"-ctraj{args.constant_trajectory}/"
+if args.nleap_distribution == 'uniform':
+    savefolder = f"{savefolder}"[:-1] + f"-uninleap/"
 if args.stepsize_distribution == 'lognormal':
     savefolder = f"{savefolder}"[:-1] + f"-{args.stepsize_distribution}/"
     if args.stepsize_sigma != 2.:
         savefolder = f"{savefolder}"[:-1] + f"-stepsig{args.stepsize_sigma}/"
+if args.step_factor != 1.:
+    savefolder = f"{savefolder}"[:-1] + f"-stepfac{args.step_factor}/"
 if args.suffix != "":
     savefolder = f"{savefolder}"[:-1] + f"-{args.suffix}/"
     
@@ -107,26 +119,33 @@ print(f"Saving Atlas runs in folder : {savefolder}")
 
 # Start run
 np.random.seed(args.seed)
-kernel = Atlas_Uturn(D, lp, lp_g, 
-                     mass_matrix = np.eye(D), 
-                     constant_trajectory = 0.,
-                     probabilistic = args.probabilistic,
-                     offset = args.offset,
-                     min_nleapfrog = args.min_nleapfrog,
-                     max_nleapfrog = args.max_nleapfrog,
-                     stepsize_distribution = args.stepsize_distribution,
-                     stepsize_sigma = args.stepsize_sigma,
-                     offset_delayed = args.offset_delayed)
-
+if args.combine_chains : communicator = comm
+else: communicator = None
+kernel = Atlas(D, lp, lp_g, 
+               mass_matrix = np.eye(D), 
+               constant_trajectory = args.constant_trajectory,
+               probabilistic = args.probabilistic,
+               delayed_proposals = args.delayed_proposals,
+               offset = args.offset,
+               min_nleapfrog = args.min_nleapfrog,
+               max_nleapfrog = args.max_nleapfrog,
+               low_nleap_percentile = args.low_nleap_percentile,
+               high_nleap_percentile = args.high_nleap_percentile,
+               stepsize_distribution = args.stepsize_distribution,
+               stepsize_sigma = args.stepsize_sigma,
+               n_hessian_samples = args.n_hessian_samples,
+               max_stepsize_reduction = args.max_stepsize_reduction)
+               
 sampler = kernel.sample(q0,
                         seed = wrank,
                         n_leapfrog = args.n_leapfrog, 
-                        step_size = step_size, 
+                        step_size = step_size * args.step_factor, 
                         n_samples = args.n_samples, 
                         n_burnin = 0,
                         n_stepsize_adapt = 0,
-                        n_leapfrog_adapt = 0.,
-                        target_accept = args.target_accept)
+                        n_leapfrog_adapt = args.n_leapfrog_adapt,
+                        target_accept = args.target_accept,
+                        comm = communicator)
 
 
 print(f"Acceptance for Atlas Sampler in chain {wrank} : ", np.unique(sampler.accepts, return_counts=True))
@@ -156,7 +175,7 @@ if wrank == 0:
     samples_list = [samples_nuts, samples]
     labels = ["NUTS", "Atlas"]
         
-        # plot histograms
+    # plot histograms
     try:
         plotting.plot_histograms(samples_list, 
                                  nplot = min(5, D), 

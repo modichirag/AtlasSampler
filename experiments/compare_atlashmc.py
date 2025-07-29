@@ -42,7 +42,7 @@ args.n_chains = wsize
 print("Model name : ", args.exp)
 
 # Load model and reference samples in rank 0. Generate if necessary.
-reference_path =  f'{REFERENCE_FOLDER}/{args.exp}/'
+reference_path =  f'{REFERENCE_FOLDER}/'
 run_nuts = bool(not wrank)
 model, D, lp, lp_g, ref_samples, files = models.stan_model(args.exp, args.n, 
                                                            bridgestan_path=BRIDGESTAN, 
@@ -85,6 +85,7 @@ q0 = comm.scatter(samples_nuts[:, 0], root=0)
 q0 = model.param_unconstrain(q0)
 print(f"Step size in rank {wrank}: ", step_size)
 comm.Barrier()
+#q0 = np.random.uniform(-2, 2, size=D)
 
 
 #####################
@@ -97,6 +98,8 @@ if args.stepsize_distribution == 'lognormal':
     savefolder = f"{savefolder}"[:-1] + f"-{args.stepsize_distribution}/"
     if args.stepsize_sigma != 2.:
         savefolder = f"{savefolder}"[:-1] + f"-stepsig{args.stepsize_sigma}/"
+if args.hessian_mode != 'bfgs':
+    savefolder = f"{savefolder}"[:-1] + f"-{args.hessian_mode}/"
 if args.suffix != "":
     savefolder = f"{savefolder}"[:-1] + f"-{args.suffix}/"
     
@@ -108,10 +111,12 @@ np.random.seed(args.seed)
 kernel = Atlas_HMC(D, lp, lp_g, 
                    mass_matrix = np.eye(D), 
                    offset = args.offset,
-                   min_nleapfrog = args.min_leapfrog,
-                   max_nleapfrog = args.max_leapfrog,
+                   min_nleapfrog = args.min_nleapfrog,
+                   max_nleapfrog = args.max_nleapfrog,
                    stepsize_distribution = args.stepsize_distribution,
-                   stepsize_sigma = args.stepsize_sigma)
+                   stepsize_sigma = args.stepsize_sigma, 
+                   hessian_mode = args.hessian_mode)
+
 sampler = kernel.sample(q0,
                         seed = wrank,
                         n_leapfrog = args.n_leapfrog, 
