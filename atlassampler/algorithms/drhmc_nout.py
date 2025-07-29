@@ -448,7 +448,7 @@ class DRHMC_NoUT(DRHMC_AdaptiveStepsize):
         state = Sampler()
         np.random.seed(seed)
         self.rng = np.random.default_rng(seed)
-q        self.step_size = step_size
+        self.step_size = step_size
         self.n_leapfrog = n_leapfrog
         self.verbose = verbose
 
