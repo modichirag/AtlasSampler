@@ -54,8 +54,8 @@ class Atlas(DRHMC_AdaptiveStepsize):
     """
     def __init__(self, D, log_prob, grad_log_prob, mass_matrix=None, 
                  offset=None, 
-                 constant_trajectory=0,
-                 probabilistic=0,
+                 constant_trajectory=2,
+                 probabilistic=1,
                  delayed_proposals=1,
                  low_nleap_percentile=10, 
                  high_nleap_percentile=90, 
@@ -70,12 +70,14 @@ class Atlas(DRHMC_AdaptiveStepsize):
             offset (float in range 0-1, default=None): sample the proposal from [offset, 1) fraction
                 of the no-U turn trajectory. If None, offset is shuffled and randomly picked
                 between [0.33, 0.66] for every iteration.      
-            constant_trajectory (0, 1, or 2, default=1): determine if number of leapfrog steps for
-                delayed proposals are scaled by stepsize ratio. 0: no scaling for any delayed proposal. 
-                1: only delayed proposal on failure are scaled. 2: both delayed proposals are scaled 
-            probabilistic (0 or 1, default=0): wether to make delayed proposal without failure
-                0: always make second delayed proposal. 1: make delayed proposal only the first proposal
-                is rejected not due to a sub u-turn  
+            constant_trajectory (0, 1, or 2, default=2): determine if number of leapfrog steps for
+                delayed proposals are scaled by stepsize ratio to main same trajectory length. 
+                0: no scaling for any delayed proposal, use same number of leapfrog steps. 
+                1: only delayed proposal on failure are scaled to keep the same trajectory length. 
+                2: both delayed proposals are scaled are scaled to keep the same trajectory length.
+            probabilistic (0 or 1, default=1): wether to make delayed proposal without failure
+                0: always make second delayed proposal. 
+                1: make delayed proposal only the first proposal is rejected not due to a sub u-turn  
         
         Keyword args:
             min_nleapfrog (int, default=3): minimum number of leapfrog steps.
@@ -93,7 +95,7 @@ class Atlas(DRHMC_AdaptiveStepsize):
                 baseline stepsize/max_stepsize_reduction
         """
 
-        super(Atlasv2_Prop, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
+        super(Atlas, self).__init__(D=D, log_prob=log_prob, grad_log_prob=grad_log_prob, 
                                     mass_matrix=mass_matrix, offset=offset,
                                     low_nleap_percentile=low_nleap_percentile,
                                     high_nleap_percentile=high_nleap_percentile, 
