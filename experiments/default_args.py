@@ -20,7 +20,7 @@ def add_default_args(parser):
     parser.add_argument('--max_nleapfrog', type=int, default=1024, help='maximum number of leapfrog steps')
 
     # Argument parsed by jitter-uturn
-    parser.add_argument('--n_leapfrog_adapt', type=int, default=200, help='number of iterations for trajectory length adaptation')
+    parser.add_argument('--n_leapfrog_adapt', type=int, default=100, help='number of iterations for trajectory length adaptation')
     parser.add_argument('--low_nleap_percentile', type=int, default=10, help='lower percentile of trajectory distribution')
     parser.add_argument('--high_nleap_percentile', type=int, default=90, help='higher percentile of trajectory distribution')
     parser.add_argument('--nleap_distribution', type=str, default='uniform', help='higher percentile of trajectory distribution')
@@ -31,6 +31,7 @@ def add_default_args(parser):
     parser.add_argument('--n_hessian_samples', type=int, default=10, help='number of points for lbfgs')
     parser.add_argument('--n_hessian_attempts', type=int, default=10, help='number of points for lbfgs')
     parser.add_argument('--hessian_mode', type=str, default='bfgs', help='method to approximate hessian')
+    parser.add_argument('--hessian_rank', type=int, default=-1, help='rank of hessian approximation, -1 for trajectory length')
     parser.add_argument('--stepsize_distribution', type=str, default='lognormal', help='distribution for stepsize')
     parser.add_argument('--stepsize_sigma', type=float, default=1.2, help='width of lognormal distribution')
     parser.add_argument('--max_stepsize_reduction', type=float, default=1000., help='maximum reduction in stepsize')

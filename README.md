@@ -1,7 +1,7 @@
-# Atlas Sampler
+# ATLAS Sampler
 Adapting Trajectory Length and Stepsize (ATLAS) for Hamiltonian Monte Carlo in a delayed rejection framework. 
 
-This repository contains research code and is currently under active development. 
+This repository contains research code for the paper https://arxiv.org/pdf/2410.21587.
 To use the package, clone the repo, build and install the code locally.
 The following will install it in the dev version.
 ```
@@ -9,24 +9,30 @@ cd AtlasSampler
 python3 -m build
 pip install --editable .
 ```
+
+## Dependencies
 The code is written in pure python and currently only installs the package.
 It has additional dependencies required to run experiments and replicate results that are not automatically installed.
-To run the example files, you will need `bridgestan` to access log-probability and gradients of stan models defined in `stan` folder. 
+You need to install jax to use Hessian approximation from BAM (Batch and Match, https://arxiv.org/abs/2402.14758).
+Some Stan models are specified in the `stan` folder. To run these example files, you will need `bridgestan` to access log-probability and gradients.. 
 In the `experiments/example.py`, you will also need to change the `BRIDGESTAN` path to point to your local install.
 
 ## Example
-An example of how to use the code is given in the script `experiments/example.py`.
+The code runs only 1 chain for every Sampler object. For multiple chains, we recommend using MPI or Pool.
+An example of how to use the code is given in the script `experiments/example.py` and  `experiments/example.ipynb`
 For example, the following command will run Atlas sampler with 4 chains for a 10-dimensional normal model specified in `stan` folder. 
 ```
 mpirun -n 4 python -u example.py --exp normal -n 10 
 ```
-Note: We recommend running 4 to 8 chains as the warmup stage combines information from all the chains to construct an empirical distribution of trajectory lengths to U-turn. 
+Note: When running multiple chains, we recommend combining trajectory lengths to U-turn explored during warmup. 
 
-The script takes different arguments to customize the sampler. For example, a typical call for the Neal's funnel model will look as follows.
+The script allows for multiple different arguments to customize and experiment with the sampler.
+For most simple and multiscale problems, the default values of these parameters specified in the file experiments/default_args.py work well.
+These can be overridden from command line. For example, a call for the Neal's funnel model can look like:
 ```
-mpirun -n 8 python -u example.py --exp funnel -n 10  --n_samples 5000 --n_stepsize_adapt 200 --n_leapfrog_adapt 200 --constant_trajectory 1  --probabilistic 1 --target_accept 0.70
+mpirun -n 8 python -u example.py --exp funnel -n 10  --n_samples 5000 --n_stepsize_adapt 200 --n_leapfrog_adapt 200 --constant_trajectory 2  --probabilistic 1 --target_accept 0.80
 ```
-For most problems, including funnel and rosenbrock, the default values of these parameters should work well.
+
 
 
 ## Comparison with NUTS
@@ -45,3 +51,9 @@ mpirun -n 8 python -u compare_atlas_nuts.py --exp rosenbrock -n 1  --n_samples 5
 # For a non-analytic model like hmm
 mpirun -n 8 python -u compare_atlas_nuts.py --exp hmm  --n_samples 5000 
 ```
+
+
+## Variants
+In folder atlassampler/algorithms, we provide other variants and components on which ATLAS is built. These can also be used for sampling themselves.
+Specifically we provide an implementation of DRHMC (https://arxiv.org/abs/2110.00610), No U-Turn sampler from GIST (https://arxiv.org/html/2404.15253v2),
+and ATLAS without DR framework. See different `compare_xyz.py` files in experiments folder on how to use these. 
