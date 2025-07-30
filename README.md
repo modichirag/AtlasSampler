@@ -19,15 +19,15 @@ In the `experiments/example.py`, you will also need to change the `BRIDGESTAN` p
 
 ## Example
 The code runs only 1 chain for every Sampler object. For multiple chains, we recommend using MPI or Pool.
-An example of how to use the code is given in the script `experiments/example.py` and  `experiments/example.ipynb`
-For example, the following command will run Atlas sampler with 4 chains for a 10-dimensional normal model specified in `stan` folder. 
+An example of how to use the code is given in the script `experiments/example.py` and  `notebooks/example.ipynb`
+For instance, the following command will run Atlas sampler with 4 chains for a 10-dimensional normal model specified in `stan` folder. 
 ```
 mpirun -n 4 python -u example.py --exp normal -n 10 
 ```
 Note: When running multiple chains, we recommend combining trajectory lengths to U-turn explored during warmup. 
 
-The script allows for multiple different arguments to customize and experiment with the sampler.
-For most simple and multiscale problems, the default values of these parameters specified in the file experiments/default_args.py work well.
+The algorithmic kernel allows for multiple different arguments to customize and experiment with the sampler.
+For most problems, the default values of these parameters specified in the file experiments/default_args.py work well.
 These can be overridden from command line. For example, a call for the Neal's funnel model can look like:
 ```
 mpirun -n 8 python -u example.py --exp funnel -n 10  --n_samples 5000 --n_stepsize_adapt 200 --n_leapfrog_adapt 200 --constant_trajectory 2  --probabilistic 1 --target_accept 0.80
